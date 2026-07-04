@@ -14,12 +14,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.captord.screenrecorder.feature.recorder.RecordingViewModel
 import com.captord.screenrecorder.ui.gallery.GalleryScreen
 import com.captord.screenrecorder.ui.home.HomeScreen
 import com.captord.screenrecorder.ui.settings.SettingsScreen
@@ -43,7 +45,11 @@ private val topLevelDestinations = listOf(
 )
 
 @Composable
-fun CaptordNavHost(modifier: Modifier = Modifier) {
+fun CaptordNavHost(
+    onRequestStartRecording: () -> Unit,
+    recordingViewModel: RecordingViewModel = viewModel(),
+    modifier: Modifier = Modifier,
+) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
@@ -84,7 +90,12 @@ fun CaptordNavHost(modifier: Modifier = Modifier) {
             startDestination = CaptordRoutes.HOME,
             modifier = Modifier.padding(innerPadding),
         ) {
-            composable(CaptordRoutes.HOME) { HomeScreen() }
+            composable(CaptordRoutes.HOME) {
+                HomeScreen(
+                    viewModel = recordingViewModel,
+                    onRequestStart = onRequestStartRecording,
+                )
+            }
             composable(CaptordRoutes.GALLERY) { GalleryScreen() }
             composable(CaptordRoutes.SETTINGS) { SettingsScreen() }
         }
