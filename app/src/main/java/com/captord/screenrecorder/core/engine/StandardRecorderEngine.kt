@@ -42,6 +42,9 @@ class StandardRecorderEngine(
     private var screenHeight = 0
     private var screenDpi = 0
     private var lastAudioSourceUsed: Int? = null
+    private var projectionCallback: MediaProjection.Callback? = null
+    @Volatile
+    private var isStopping = false
 
     override fun start(config: RecordingConfig, resultCode: Int, projectionData: Intent) {
         if (recordingState == RecordingSessionState.RECORDING ||
@@ -55,6 +58,7 @@ class StandardRecorderEngine(
         segmentIndex = 0
         pausedAccumulatedMs = 0
         pauseStartedMs = 0
+        isStopping = false
 
         val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val metrics = DisplayMetrics()
@@ -88,18 +92,22 @@ class StandardRecorderEngine(
                 return
             }
 
-            projection?.registerCallback(object : MediaProjection.Callback() {
+            val callback = object : MediaProjection.Callback() {
                 override fun onStop() {
                     Log.i(TAG, "MediaProjection stopped")
+                    if (isStopping) return
                     if (recordingState == RecordingSessionState.RECORDING ||
                         recordingState == RecordingSessionState.PAUSED
                     ) {
                         stop()
                     } else {
+                        releaseCaptureResources(stopProjection = false)
                         callbacks.onStateChanged(RecordingSessionState.IDLE)
                     }
                 }
-            }, null)
+            }
+            projectionCallback = callback
+            projection?.registerCallback(callback, null)
 
             val recorder = buildAndPrepareRecorder(config)
             mediaRecorder = recorder
@@ -130,7 +138,7 @@ class StandardRecorderEngine(
                 "RECORD_AUDIO permission is required for audio. Grant permission or disable audio.",
                 true,
             )
-            cleanupRecorder()
+            releaseCaptureResources(stopProjection = true)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start recording", e)
             recordingState = RecordingSessionState.ERROR
@@ -139,7 +147,7 @@ class StandardRecorderEngine(
                 "Failed to start recording: ${e.message}",
                 false,
             )
-            cleanupRecorder()
+            releaseCaptureResources(stopProjection = true)
         }
     }
 
@@ -281,11 +289,12 @@ class StandardRecorderEngine(
                 false,
             )
             recordingState = RecordingSessionState.ERROR
-            cleanupRecorder()
+            releaseCaptureResources(stopProjection = true)
         }
     }
 
     override fun stop() {
+        if (isStopping) return
         if (recordingState != RecordingSessionState.RECORDING &&
             recordingState != RecordingSessionState.PAUSED
         ) {
@@ -293,39 +302,28 @@ class StandardRecorderEngine(
             return
         }
 
+        isStopping = true
         recordingState = RecordingSessionState.STOPPING
         callbacks.onStateChanged(RecordingSessionState.STOPPING)
         stopTimer()
 
+        val tempPath = currentFilePath
+        val finalPath = currentFinalPath
+        val finishedIndex = segmentIndex
+
+        // Order: stop encoder → release VirtualDisplay (surface consumer) → release MediaRecorder.
         val stoppedOk = try {
-            mediaRecorder?.apply {
-                stop()
-                reset()
-                release()
-            }
+            mediaRecorder?.stop()
             true
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping recorder", e)
             false
         }
 
-        try {
-            virtualDisplay?.release()
-        } catch (_: Exception) {
-        }
-
-        val tempPath = currentFilePath
-        val finalPath = currentFinalPath
-        val finishedIndex = segmentIndex
-
-        cleanupRecorder()
-        try {
-            projection?.stop()
-        } catch (_: Exception) {
-        }
-        projection = null
+        releaseCaptureResources(stopProjection = true)
 
         recordingState = RecordingSessionState.IDLE
+        isStopping = false
         val finalized = finalizeSegment(stoppedOk, tempPath, finalPath, finishedIndex)
         callbacks.onStateChanged(RecordingSessionState.IDLE)
         if (!finalized) {
@@ -376,23 +374,11 @@ class StandardRecorderEngine(
     }
 
     override fun release() {
+        isStopping = true
         stopTimer()
-        try {
-            virtualDisplay?.release()
-        } catch (_: Exception) {
-        }
-        try {
-            mediaRecorder?.release()
-        } catch (_: Exception) {
-        }
-        mediaRecorder = null
-        virtualDisplay = null
-        try {
-            projection?.stop()
-        } catch (_: Exception) {
-        }
-        projection = null
+        releaseCaptureResources(stopProjection = true)
         recordingState = RecordingSessionState.IDLE
+        isStopping = false
     }
 
     override fun isRecording() = recordingState == RecordingSessionState.RECORDING
@@ -448,9 +434,47 @@ class StandardRecorderEngine(
         timerThread = null
     }
 
-    private fun cleanupRecorder() {
-        mediaRecorder = null
+    /**
+     * Releases VirtualDisplay before MediaRecorder so the encoder surface is not left dangling
+     * (avoids "A resource failed to call Surface.release").
+     */
+    private fun releaseCaptureResources(stopProjection: Boolean) {
+        val display = virtualDisplay
         virtualDisplay = null
+        try {
+            display?.release()
+        } catch (e: Exception) {
+            Log.w(TAG, "VirtualDisplay release failed", e)
+        }
+
+        val recorder = mediaRecorder
+        mediaRecorder = null
+        try {
+            recorder?.reset()
+        } catch (_: Exception) {
+        }
+        try {
+            recorder?.release()
+        } catch (e: Exception) {
+            Log.w(TAG, "MediaRecorder release failed", e)
+        }
+
+        val proj = projection
+        val callback = projectionCallback
+        projectionCallback = null
+        if (proj != null && callback != null) {
+            try {
+                proj.unregisterCallback(callback)
+            } catch (_: Exception) {
+            }
+        }
+        if (stopProjection) {
+            projection = null
+            try {
+                proj?.stop()
+            } catch (_: Exception) {
+            }
+        }
     }
 
     private data class TargetSize(val width: Int, val height: Int)
