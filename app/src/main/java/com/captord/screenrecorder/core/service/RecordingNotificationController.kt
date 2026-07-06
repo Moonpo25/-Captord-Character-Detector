@@ -14,6 +14,8 @@ import com.captord.screenrecorder.R
 
 class RecordingNotificationController(private val service: Service) {
 
+    private var isForeground = false
+
     fun createNotificationChannel() {
         val channel = NotificationChannel(
             CHANNEL_ID,
@@ -22,6 +24,7 @@ class RecordingNotificationController(private val service: Service) {
         ).apply {
             description = CHANNEL_DESC
             setShowBadge(false)
+            setSound(null, null)
         }
         val manager = service.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(channel)
@@ -41,7 +44,7 @@ class RecordingNotificationController(private val service: Service) {
             action = ScreenRecorderService.ACTION_STOP
         }
         val contentIntent = Intent(service, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
 
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -50,44 +53,68 @@ class RecordingNotificationController(private val service: Service) {
         val stopPendingIntent = PendingIntent.getService(service, 103, stopIntent, flags)
         val openPendingIntent = PendingIntent.getActivity(service, 100, contentIntent, flags)
 
+        val title = if (isPaused) {
+            service.getString(R.string.notif_title_paused)
+        } else {
+            service.getString(R.string.notif_title_recording)
+        }
+
         val builder = NotificationCompat.Builder(service, CHANNEL_ID)
-            .setContentTitle(service.getString(R.string.app_name))
+            .setContentTitle(title)
             .setContentText(statusText)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentIntent(openPendingIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setSilent(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
 
         if (isPaused) {
             builder.addAction(android.R.drawable.ic_media_play, "Resume", resumePendingIntent)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        } else {
             builder.addAction(android.R.drawable.ic_media_pause, "Pause", pausePendingIntent)
         }
         builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent)
         return builder.build()
     }
 
-    fun showRecordingNotification() {
+    /** Start or re-assert FGS. Safe to call once at service start. */
+    fun ensureForeground(
+        statusText: String = "Recording in progress",
+        isPaused: Boolean = false,
+    ) {
         createNotificationChannel()
-        val notification = buildRecordingNotification()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val type = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION or
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-            service.startForeground(NOTIFICATION_ID, notification, type)
+        val notification = buildRecordingNotification(statusText, isPaused)
+        if (!isForeground) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val type = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION or
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                service.startForeground(NOTIFICATION_ID, notification, type)
+            } else {
+                service.startForeground(NOTIFICATION_ID, notification)
+            }
+            isForeground = true
         } else {
-            service.startForeground(NOTIFICATION_ID, notification)
+            val manager = service.getSystemService(NotificationManager::class.java)
+            manager.notify(NOTIFICATION_ID, notification)
         }
     }
 
     fun updateNotificationText(text: String, isPaused: Boolean = false) {
+        if (!isForeground) {
+            ensureForeground(text, isPaused)
+            return
+        }
         val notification = buildRecordingNotification(text, isPaused)
         val manager = service.getSystemService(NotificationManager::class.java)
         manager.notify(NOTIFICATION_ID, notification)
     }
 
     fun stopNotification() {
+        isForeground = false
         service.stopForeground(Service.STOP_FOREGROUND_REMOVE)
         val manager = service.getSystemService(NotificationManager::class.java)
         manager.cancel(NOTIFICATION_ID)
@@ -113,8 +140,8 @@ class RecordingNotificationController(private val service: Service) {
         val pendingIntent = PendingIntent.getActivity(service, 0, openIntent, flags)
 
         val notification = NotificationCompat.Builder(service, completionChannelId)
-            .setContentTitle("Recording saved")
-            .setContentText("Tap to open Captord")
+            .setContentTitle(service.getString(R.string.notif_saved_title))
+            .setContentText(service.getString(R.string.notif_saved_text))
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)

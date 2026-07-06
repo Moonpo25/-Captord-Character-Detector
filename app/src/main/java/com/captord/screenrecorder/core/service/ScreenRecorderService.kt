@@ -10,11 +10,13 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.provider.Settings
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.captord.screenrecorder.core.engine.EngineCallbacks
 import com.captord.screenrecorder.core.engine.RecordingEngine
 import com.captord.screenrecorder.core.engine.StandardRecorderEngine
+import com.captord.screenrecorder.core.overlay.FloatingOverlayManager
 import com.captord.screenrecorder.feature.recorder.model.RecordingConfig
 import com.captord.screenrecorder.feature.recorder.model.RecordingErrorCode
 import com.captord.screenrecorder.feature.recorder.model.RecordingEvent
@@ -34,6 +36,7 @@ class ScreenRecorderService : Service() {
     private lateinit var notificationController: RecordingNotificationController
     private var engine: RecordingEngine? = null
     private var currentConfig: RecordingConfig? = null
+    private var overlayManager: FloatingOverlayManager? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -59,18 +62,30 @@ class ScreenRecorderService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
         // REQ-037: startForeground must run before getMediaProjection / engine start.
-        notificationController.showRecordingNotification()
-
+        // For pause/resume/stop, only re-assert FGS without resetting action buttons.
         when (action) {
-            ACTION_START -> handleStart(intent)
-            ACTION_STOP -> handleStop(showCompletion = true)
+            ACTION_START -> {
+                notificationController.ensureForeground()
+                handleStart(intent)
+            }
+            ACTION_STOP -> {
+                notificationController.ensureForeground(
+                    statusText = "Stopping…",
+                    isPaused = false,
+                )
+                handleStop(showCompletion = true)
+            }
             ACTION_PAUSE -> {
+                notificationController.ensureForeground(isPaused = true)
                 engine?.pause()
                 notificationController.updateNotificationText("Recording paused", isPaused = true)
+                overlayManager?.updatePaused(true)
             }
             ACTION_RESUME -> {
+                notificationController.ensureForeground(isPaused = false)
                 engine?.resume()
                 notificationController.updateNotificationText("Recording in progress", isPaused = false)
+                overlayManager?.updatePaused(false)
             }
             else -> {
                 Log.w(TAG, "Unknown action: $action")
@@ -126,18 +141,25 @@ class ScreenRecorderService : Service() {
                     _uiState.update { it.copy(sessionState = state) }
                     emitEvent(RecordingEvent.StateChanged(state))
                     when (state) {
-                        RecordingSessionState.RECORDING ->
+                        RecordingSessionState.RECORDING -> {
+                            maybeShowOverlay(config)
+                            overlayManager?.updatePaused(false)
                             notificationController.updateNotificationText(
                                 "Recording in progress",
                                 isPaused = false,
                             )
-                        RecordingSessionState.PAUSED ->
+                            requestTileRefresh()
+                        }
+                        RecordingSessionState.PAUSED -> {
+                            overlayManager?.updatePaused(true)
                             notificationController.updateNotificationText(
                                 "Recording paused",
                                 isPaused = true,
                             )
+                            requestTileRefresh()
+                        }
                         RecordingSessionState.IDLE, RecordingSessionState.ERROR -> {
-                            // stop handled by command path
+                            requestTileRefresh()
                         }
                         else -> Unit
                     }
@@ -146,15 +168,17 @@ class ScreenRecorderService : Service() {
 
             override fun onTimerTick(durationMs: Long, fileSizeBytes: Long) {
                 mainHandler.post {
+                    val paused = engine?.isPaused() == true
                     _uiState.update {
                         it.copy(durationMs = durationMs, fileSizeBytes = fileSizeBytes)
                     }
                     emitEvent(RecordingEvent.TimerTick(durationMs, fileSizeBytes))
                     val text = formatDuration(durationMs)
                     notificationController.updateNotificationText(
-                        "Recording: $text",
-                        isPaused = false,
+                        if (paused) "Paused: $text" else "Recording: $text",
+                        isPaused = paused,
                     )
+                    overlayManager?.updateTimer(text)
                 }
             }
 
@@ -198,6 +222,7 @@ class ScreenRecorderService : Service() {
         acquireWakeLock()
         try {
             engine?.start(config, resultCode, projectionData)
+            maybeShowOverlay(config)
         } catch (e: Exception) {
             Log.e(TAG, "Engine start failed", e)
             emitError(
@@ -207,6 +232,22 @@ class ScreenRecorderService : Service() {
             )
             cleanupAndStop(showCompletion = false)
         }
+    }
+
+    private fun maybeShowOverlay(config: RecordingConfig) {
+        if (!config.showOverlay) return
+        if (!Settings.canDrawOverlays(this)) return
+        if (overlayManager == null) {
+            overlayManager = FloatingOverlayManager(this)
+        }
+        if (overlayManager?.isShowing != true) {
+            overlayManager?.show()
+        }
+    }
+
+    private fun removeOverlay() {
+        overlayManager?.remove()
+        overlayManager = null
     }
 
     private fun handleStop(showCompletion: Boolean) {
@@ -220,6 +261,7 @@ class ScreenRecorderService : Service() {
         } catch (_: Exception) {
         }
         engine = null
+        removeOverlay()
         releaseWakeLock()
         notificationController.stopNotification()
         if (showCompletion && !_uiState.value.lastFinalPath.isNullOrBlank()) {
@@ -232,6 +274,7 @@ class ScreenRecorderService : Service() {
             )
         }
         emitEvent(RecordingEvent.StateChanged(RecordingSessionState.IDLE))
+        requestTileRefresh()
         stopSelf()
     }
 
@@ -241,11 +284,13 @@ class ScreenRecorderService : Service() {
         } catch (_: Exception) {
         }
         engine = null
+        removeOverlay()
         releaseWakeLock()
         notificationController.stopNotification()
         if (showCompletion) {
             notificationController.showCompletionNotification()
         }
+        requestTileRefresh()
         stopSelf()
     }
 
@@ -279,7 +324,19 @@ class ScreenRecorderService : Service() {
         wakeLock = null
     }
 
+    private fun requestTileRefresh() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
+        try {
+            android.service.quicksettings.TileService.requestListeningState(
+                this,
+                android.content.ComponentName(this, RecordingTileService::class.java),
+            )
+        } catch (_: Exception) {
+        }
+    }
+
     override fun onDestroy() {
+        removeOverlay()
         releaseWakeLock()
         try {
             engine?.release()
@@ -307,6 +364,13 @@ class ScreenRecorderService : Service() {
         var instance: ScreenRecorderService? = null
             private set
 
+        fun isSessionActive(): Boolean {
+            val state = instance?._uiState?.value?.sessionState
+            return state == RecordingSessionState.RECORDING ||
+                state == RecordingSessionState.PAUSED ||
+                state == RecordingSessionState.STOPPING
+        }
+
         fun startRecording(
             context: Context,
             config: RecordingConfig,
@@ -326,10 +390,15 @@ class ScreenRecorderService : Service() {
             val intent = Intent(context, ScreenRecorderService::class.java).apply {
                 this.action = action
             }
-            context.startService(intent)
+            // Prefer startService for control actions; FGS already running.
+            try {
+                context.startService(intent)
+            } catch (_: Exception) {
+                ContextCompat.startForegroundService(context, intent)
+            }
         }
 
-        private fun formatDuration(durationMs: Long): String {
+        fun formatDuration(durationMs: Long): String {
             val totalSeconds = durationMs / 1000
             val seconds = totalSeconds % 60
             val minutes = (totalSeconds / 60) % 60

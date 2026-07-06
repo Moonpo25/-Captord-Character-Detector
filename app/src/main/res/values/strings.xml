@@ -1,3 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Captord</string>
+    <string name="notif_title_recording">Captord · Recording</string>
+    <string name="notif_title_paused">Captord · Paused</string>
+    <string name="notif_saved_title">Recording saved</string>
+    <string name="notif_saved_text">Tap to open Captord</string>
+    <string name="shortcut_start_short">Start</string>
+    <string name="shortcut_start_long">Start recording</string>
+    <string name="shortcut_stop_short">Stop</string>
+    <string name="shortcut_stop_long">Stop recording</string>
+    <string name="tile_label">Screen record</string>
 </resources>
