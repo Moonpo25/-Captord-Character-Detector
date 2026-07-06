@@ -10,6 +10,7 @@ data class CapabilityReport(
     val supportsPause: Boolean,
     val androidApi: Int,
     val supportsShowTouches: Boolean,
+    val supportsDynamicColor: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
 ) {
     companion object {
         fun probeMinimal(): CapabilityReport = CapabilityReport(
@@ -20,6 +21,7 @@ data class CapabilityReport(
             supportsPause = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N,
             androidApi = Build.VERSION.SDK_INT,
             supportsShowTouches = false,
+            supportsDynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
         )
     }
 }

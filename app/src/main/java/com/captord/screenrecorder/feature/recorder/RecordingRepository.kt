@@ -76,7 +76,8 @@ class RecordingRepository(private val appContext: Context) {
 
     fun getRecordingState(): RecordingUiState = _uiState.value
 
-    fun checkCapabilities(): CapabilityReport = CapabilityReport.probeMinimal()
+    fun checkCapabilities(): CapabilityReport =
+        com.captord.screenrecorder.core.capability.CapabilityChecker.probe(appContext)
 
     fun startRecording(config: RecordingConfig, resultCode: Int, projectionData: Intent) {
         when (val validation = config.validate()) {
