@@ -12,12 +12,20 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.captord.screenrecorder.core.settings.AppSettings
 import com.captord.screenrecorder.feature.recorder.RecordingViewModel
+import com.captord.screenrecorder.feature.settings.SettingsViewModel
 import com.captord.screenrecorder.ui.navigation.CaptordNavHost
 import com.captord.screenrecorder.ui.theme.CaptordTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -26,12 +34,14 @@ class MainActivity : ComponentActivity() {
     private val mediaProjectionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-                val config = recordingViewModel.phase1Config()
-                recordingViewModel.startRecording(
-                    config = config,
-                    resultCode = result.resultCode,
-                    projectionData = result.data!!,
-                )
+                lifecycleScope.launch {
+                    val config = recordingViewModel.loadRecordingConfig()
+                    recordingViewModel.startRecording(
+                        config = config,
+                        resultCode = result.resultCode,
+                        projectionData = result.data!!,
+                    )
+                }
             } else {
                 recordingViewModel.notifyProjectionDenied()
             }
@@ -40,19 +50,10 @@ class MainActivity : ComponentActivity() {
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
             val audioOk = grants[Manifest.permission.RECORD_AUDIO] != false
-            val notifOk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                grants[Manifest.permission.POST_NOTIFICATIONS] != false
-            } else {
-                true
-            }
             if (audioOk) {
-                launchMediaProjectionConsent()
+                recordingViewModel.beginStartSequence(::launchMediaProjectionConsent)
             } else {
                 recordingViewModel.notifyProjectionDenied()
-            }
-            // Notification denial is non-blocking; app controls remain available.
-            if (!notifOk) {
-                // proceed without notification visibility guarantee
             }
         }
 
@@ -60,7 +61,18 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            CaptordTheme {
+            val settingsViewModel: SettingsViewModel = viewModel()
+            val settings by settingsViewModel.settings.collectAsStateWithLifecycle()
+            val systemDark = isSystemInDarkTheme()
+            val darkTheme = when (settings.themeMode) {
+                AppSettings.THEME_LIGHT -> false
+                AppSettings.THEME_DARK -> true
+                else -> systemDark
+            }
+            CaptordTheme(
+                darkTheme = darkTheme,
+                dynamicColor = settings.dynamicColorEnabled,
+            ) {
                 CaptordNavHost(
                     onRequestStartRecording = ::requestStartRecording,
                     recordingViewModel = recordingViewModel,
@@ -72,22 +84,32 @@ class MainActivity : ComponentActivity() {
 
     private fun requestStartRecording() {
         val needed = mutableListOf<String>()
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            needed += Manifest.permission.RECORD_AUDIO
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            needed += Manifest.permission.POST_NOTIFICATIONS
-        }
+        val audioNeeded = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.RECORD_AUDIO,
+        ) != PackageManager.PERMISSION_GRANTED
 
-        if (needed.isNotEmpty()) {
-            permissionLauncher.launch(needed.toTypedArray())
-        } else {
-            launchMediaProjectionConsent()
+        // Only request RECORD_AUDIO when settings want audio — always request for phase1 default true;
+        // settings-driven: still request if currently granted not needed when audio off.
+        lifecycleScope.launch {
+            val config = recordingViewModel.loadRecordingConfig()
+            if (config.audioEnabled && audioNeeded) {
+                needed += Manifest.permission.RECORD_AUDIO
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(
+                    this@MainActivity,
+                    Manifest.permission.POST_NOTIFICATIONS,
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                needed += Manifest.permission.POST_NOTIFICATIONS
+            }
+
+            if (needed.isNotEmpty()) {
+                permissionLauncher.launch(needed.toTypedArray())
+            } else {
+                recordingViewModel.beginStartSequence(::launchMediaProjectionConsent)
+            }
         }
     }
 
