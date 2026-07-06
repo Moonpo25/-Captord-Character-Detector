@@ -37,6 +37,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val countdownRemaining by viewModel.countdownRemaining.collectAsStateWithLifecycle()
     val dark = isSystemInDarkTheme()
     val recColor = if (dark) CaptordSemanticColors.recActiveDark else CaptordSemanticColors.recActiveLight
     val pauseColor = if (dark) CaptordSemanticColors.recPausedDark else CaptordSemanticColors.recPausedLight
@@ -88,7 +89,11 @@ fun HomeScreen(
         }
 
         Text(
-            text = formatDuration(uiState.durationMs),
+            text = if (uiState.sessionState == RecordingSessionState.COUNTDOWN) {
+                countdownRemaining.toString()
+            } else {
+                formatDuration(uiState.durationMs)
+            },
             fontSize = 40.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace,
@@ -133,6 +138,11 @@ fun HomeScreen(
                         Text("Start")
                     }
                 }
+                RecordingSessionState.COUNTDOWN -> {
+                    OutlinedButton(onClick = viewModel::cancelCountdown) {
+                        Text("Cancel")
+                    }
+                }
                 RecordingSessionState.RECORDING -> {
                     OutlinedButton(onClick = viewModel::pauseRecording) {
                         Text("Pause")
@@ -149,7 +159,7 @@ fun HomeScreen(
                         Text("Stop")
                     }
                 }
-                RecordingSessionState.STOPPING, RecordingSessionState.COUNTDOWN -> {
+                RecordingSessionState.STOPPING -> {
                     Button(onClick = {}, enabled = false) {
                         Text("Working…")
                     }
