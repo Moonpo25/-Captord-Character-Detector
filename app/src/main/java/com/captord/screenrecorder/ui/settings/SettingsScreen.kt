@@ -30,14 +30,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.captord.screenrecorder.core.overlay.FloatingOverlayManager
 import com.captord.screenrecorder.core.settings.AppSettings
 import com.captord.screenrecorder.feature.recorder.model.RecordingConfig
 import com.captord.screenrecorder.feature.settings.SettingsViewModel
@@ -52,6 +55,14 @@ fun SettingsScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val capabilities by viewModel.capabilities.collectAsStateWithLifecycle()
     val qualityLocked by viewModel.qualityLocked.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val canOverlay = FloatingOverlayManager.canDrawOverlays(context)
+
+    LaunchedEffect(Unit) {
+        viewModel.overlayPermissionEvents.collect { intent ->
+            runCatching { context.startActivity(intent) }
+        }
+    }
 
     var sheet by remember { mutableStateOf<SettingsSheet?>(null) }
     var showPrefixDialog by remember { mutableStateOf(false) }
@@ -256,11 +267,27 @@ fun SettingsScreen(
         SectionLabel("Controls")
         SwitchRow(
             title = "Floating overlay",
-            checked = settings.showOverlay,
+            checked = settings.showOverlay && canOverlay,
             enabled = !qualityLocked,
             onCheckedChange = viewModel::setShowOverlay,
-            supporting = "Overlay UI arrives in a later phase; preference is saved.",
+            supporting = when {
+                !canOverlay -> "Grant “Display over other apps” to show floating controls. Notification controls always work."
+                settings.showOverlay -> "Timer + pause/stop while recording. Drag to move."
+                else -> "Show floating controls during recording when permission is granted."
+            },
         )
+        if (!canOverlay) {
+            ClickRow(
+                title = "Overlay permission",
+                summary = "Open system settings",
+                enabled = true,
+                onClick = {
+                    context.startActivity(
+                        FloatingOverlayManager.createOverlaySettingsIntent(context),
+                    )
+                },
+            )
+        }
         SwitchRow(
             title = "Show touches",
             checked = settings.showTouches,

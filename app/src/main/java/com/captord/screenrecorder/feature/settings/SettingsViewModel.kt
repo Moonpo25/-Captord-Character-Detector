@@ -1,16 +1,22 @@
 package com.captord.screenrecorder.feature.settings
 
 import android.app.Application
+import android.content.Intent
+import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.captord.screenrecorder.core.capability.CapabilityChecker
+import com.captord.screenrecorder.core.overlay.FloatingOverlayManager
 import com.captord.screenrecorder.core.settings.AppSettings
 import com.captord.screenrecorder.core.settings.SettingsRepository
 import com.captord.screenrecorder.feature.recorder.RecordingRepository
 import com.captord.screenrecorder.feature.recorder.model.CapabilityReport
 import com.captord.screenrecorder.feature.recorder.model.RecordingUiState
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -37,6 +43,25 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         .map { it.isActive }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    private val _overlayPermissionEvents = MutableSharedFlow<Intent>(extraBufferCapacity = 1)
+    val overlayPermissionEvents: SharedFlow<Intent> = _overlayPermissionEvents.asSharedFlow()
+
+    fun canDrawOverlays(): Boolean =
+        FloatingOverlayManager.canDrawOverlays(getApplication())
+
+    fun setShowOverlay(value: Boolean) {
+        if (value && !canDrawOverlays()) {
+            viewModelScope.launch {
+                settingsRepository.setShowOverlay(false)
+                _overlayPermissionEvents.tryEmit(
+                    FloatingOverlayManager.createOverlaySettingsIntent(getApplication()),
+                )
+            }
+            return
+        }
+        launchUpdate { settingsRepository.setShowOverlay(value) }
+    }
+
     fun setEngineType(value: Int) = launchUpdate { settingsRepository.setEngineType(value) }
     fun setFrameRate(value: Int) = launchUpdate { settingsRepository.setFrameRate(value) }
     fun setVideoBitrate(value: Int) = launchUpdate { settingsRepository.setVideoBitrate(value) }
@@ -49,7 +74,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setCountdownSec(value: Int) = launchUpdate { settingsRepository.setCountdownSec(value) }
     fun setMaxFileSizeMb(value: Int) = launchUpdate { settingsRepository.setMaxFileSizeMb(value) }
     fun setFilePrefix(value: String) = launchUpdate { settingsRepository.setFilePrefix(value) }
-    fun setShowOverlay(value: Boolean) = launchUpdate { settingsRepository.setShowOverlay(value) }
     fun setManualResolutionHeight(value: Int) = launchUpdate {
         settingsRepository.setManualResolutionHeight(value)
     }
