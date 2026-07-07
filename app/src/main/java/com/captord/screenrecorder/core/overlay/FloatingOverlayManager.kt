@@ -23,8 +23,11 @@ import com.captord.screenrecorder.core.service.ScreenRecorderService
 /**
  * Native WindowManager overlay (not Compose).
  *
- * - FLAG_SECURE: try to keep controls out of MediaProjection output (may black-box on some OEMs).
- * - Lower window alpha + idle fade so controls are less intrusive when they still appear in video.
+ * Fade uses [View.setAlpha] only — never [WindowManager.LayoutParams.alpha], which on many
+ * devices makes the window stop receiving touches when lowered.
+ *
+ * FLAG_SECURE is intentionally not used: third-party MediaProjection still captures overlays
+ * on most OEMs, and secure windows can produce black boxes without removing the control chrome.
  */
 class FloatingOverlayManager(private val context: Context) {
 
@@ -41,7 +44,7 @@ class FloatingOverlayManager(private val context: Context) {
     private var touchStartY = 0f
     private var movedDuringGesture = false
 
-    private val fadeRunnable = Runnable { applyWindowAlpha(ALPHA_IDLE) }
+    private val fadeRunnable = Runnable { applyViewAlpha(ALPHA_IDLE) }
 
     val isShowing: Boolean get() = rootView != null
 
@@ -57,12 +60,12 @@ class FloatingOverlayManager(private val context: Context) {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(12), dp(8), dp(12), dp(8))
             background = GradientDrawable().apply {
-                // ~45% black — less solid in capture when FLAG_SECURE is ignored
                 setColor(Color.parseColor("#73121212"))
                 cornerRadius = dp(28).toFloat()
                 setStroke(dp(1), Color.parseColor("#44FFFFFF"))
             }
             elevation = dp(4).toFloat()
+            alpha = ALPHA_ACTIVE
         }
 
         val timer = TextView(context).apply {
@@ -121,15 +124,14 @@ class FloatingOverlayManager(private val context: Context) {
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_SECURE,
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
             x = dp(16)
             y = dp(120)
-            // Visible to user, softer in capture when secure flag is not honored
-            alpha = ALPHA_ACTIVE
+            // Keep window fully hittable; fade is on the view only.
+            alpha = 1f
         }
 
         enableDrag(container, params)
@@ -184,7 +186,7 @@ class FloatingOverlayManager(private val context: Context) {
     }
 
     private fun bumpOpacity() {
-        applyWindowAlpha(ALPHA_ACTIVE)
+        applyViewAlpha(ALPHA_ACTIVE)
         scheduleIdleFade()
     }
 
@@ -193,14 +195,8 @@ class FloatingOverlayManager(private val context: Context) {
         mainHandler.postDelayed(fadeRunnable, IDLE_FADE_MS)
     }
 
-    private fun applyWindowAlpha(value: Float) {
-        val params = layoutParams ?: return
-        val view = rootView ?: return
-        params.alpha = value
-        try {
-            windowManager.updateViewLayout(view, params)
-        } catch (_: Exception) {
-        }
+    private fun applyViewAlpha(value: Float) {
+        rootView?.alpha = value
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -235,7 +231,6 @@ class FloatingOverlayManager(private val context: Context) {
                 MotionEvent.ACTION_UP -> {
                     scheduleIdleFade()
                     if (!movedDuringGesture && v is LinearLayout) {
-                        // Forward tap to Pause/Stop children (timer is display-only).
                         val localX = event.x
                         val localY = event.y
                         for (i in 0 until v.childCount) {
@@ -268,8 +263,8 @@ class FloatingOverlayManager(private val context: Context) {
     }
 
     companion object {
-        private const val ALPHA_ACTIVE = 0.88f
-        private const val ALPHA_IDLE = 0.38f
+        private const val ALPHA_ACTIVE = 0.92f
+        private const val ALPHA_IDLE = 0.42f
         private const val IDLE_FADE_MS = 2500L
 
         fun canDrawOverlays(context: Context): Boolean = Settings.canDrawOverlays(context)
