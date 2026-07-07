@@ -10,10 +10,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
@@ -21,6 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.captord.screenrecorder.core.settings.AppSettings
+import com.captord.screenrecorder.feature.gallery.GalleryViewModel
 import com.captord.screenrecorder.feature.recorder.RecordingViewModel
 import com.captord.screenrecorder.feature.settings.SettingsViewModel
 import com.captord.screenrecorder.ui.navigation.CaptordNavHost
@@ -30,6 +33,7 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
 
     private val recordingViewModel: RecordingViewModel by viewModels()
+    private val galleryViewModel: GalleryViewModel by viewModels()
 
     private val mediaProjectionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -50,16 +54,29 @@ class MainActivity : ComponentActivity() {
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
             val audioOk = grants[Manifest.permission.RECORD_AUDIO] != false
-            if (audioOk) {
-                recordingViewModel.beginStartSequence(::launchMediaProjectionConsent)
+            if (audioOk || grants[Manifest.permission.RECORD_AUDIO] == null) {
+                // If audio not requested, grant map may omit it
+                if (grants.containsKey(Manifest.permission.RECORD_AUDIO) && !audioOk) {
+                    recordingViewModel.notifyProjectionDenied()
+                } else {
+                    recordingViewModel.beginStartSequence(::launchMediaProjectionConsent)
+                }
             } else {
                 recordingViewModel.notifyProjectionDenied()
             }
         }
 
+    private val deleteConfirmationLauncher =
+        registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+            galleryViewModel.onDeleteConfirmationResult(result.resultCode)
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        galleryViewModel.onNeedDeleteConfirmation = { sender ->
+            deleteConfirmationLauncher.launch(IntentSenderRequest.Builder(sender).build())
+        }
         setContent {
             val settingsViewModel: SettingsViewModel = viewModel()
             val settings by settingsViewModel.settings.collectAsStateWithLifecycle()
@@ -69,6 +86,11 @@ class MainActivity : ComponentActivity() {
                 AppSettings.THEME_DARK -> true
                 else -> systemDark
             }
+            DisposableEffect(Unit) {
+                onDispose {
+                    galleryViewModel.onNeedDeleteConfirmation = null
+                }
+            }
             CaptordTheme(
                 darkTheme = darkTheme,
                 dynamicColor = settings.dynamicColorEnabled,
@@ -76,6 +98,7 @@ class MainActivity : ComponentActivity() {
                 CaptordNavHost(
                     onRequestStartRecording = ::requestStartRecording,
                     recordingViewModel = recordingViewModel,
+                    galleryViewModel = galleryViewModel,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -89,8 +112,6 @@ class MainActivity : ComponentActivity() {
             Manifest.permission.RECORD_AUDIO,
         ) != PackageManager.PERMISSION_GRANTED
 
-        // Only request RECORD_AUDIO when settings want audio — always request for phase1 default true;
-        // settings-driven: still request if currently granted not needed when audio off.
         lifecycleScope.launch {
             val config = recordingViewModel.loadRecordingConfig()
             if (config.audioEnabled && audioNeeded) {
@@ -103,6 +124,14 @@ class MainActivity : ComponentActivity() {
                 ) != PackageManager.PERMISSION_GRANTED
             ) {
                 needed += Manifest.permission.POST_NOTIFICATIONS
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(
+                    this@MainActivity,
+                    Manifest.permission.READ_MEDIA_VIDEO,
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                needed += Manifest.permission.READ_MEDIA_VIDEO
             }
 
             if (needed.isNotEmpty()) {
