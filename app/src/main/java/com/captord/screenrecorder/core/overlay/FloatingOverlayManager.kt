@@ -8,6 +8,8 @@ import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.util.TypedValue
 import android.view.Gravity
@@ -19,12 +21,15 @@ import android.widget.TextView
 import com.captord.screenrecorder.core.service.ScreenRecorderService
 
 /**
- * Native WindowManager overlay (not Compose). High-contrast fixed colors for readability
- * independent of Material You wallpaper.
+ * Native WindowManager overlay (not Compose).
+ *
+ * - FLAG_SECURE: try to keep controls out of MediaProjection output (may black-box on some OEMs).
+ * - Lower window alpha + idle fade so controls are less intrusive when they still appear in video.
  */
 class FloatingOverlayManager(private val context: Context) {
 
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var rootView: LinearLayout? = null
     private var timerView: TextView? = null
     private var pauseView: TextView? = null
@@ -34,6 +39,9 @@ class FloatingOverlayManager(private val context: Context) {
     private var dragStartY = 0
     private var touchStartX = 0f
     private var touchStartY = 0f
+    private var movedDuringGesture = false
+
+    private val fadeRunnable = Runnable { applyWindowAlpha(ALPHA_IDLE) }
 
     val isShowing: Boolean get() = rootView != null
 
@@ -49,11 +57,12 @@ class FloatingOverlayManager(private val context: Context) {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(12), dp(8), dp(12), dp(8))
             background = GradientDrawable().apply {
-                setColor(Color.parseColor("#E6121212"))
+                // ~45% black — less solid in capture when FLAG_SECURE is ignored
+                setColor(Color.parseColor("#73121212"))
                 cornerRadius = dp(28).toFloat()
-                setStroke(dp(1), Color.parseColor("#66FFFFFF"))
+                setStroke(dp(1), Color.parseColor("#44FFFFFF"))
             }
-            elevation = dp(8).toFloat()
+            elevation = dp(4).toFloat()
         }
 
         val timer = TextView(context).apply {
@@ -69,8 +78,9 @@ class FloatingOverlayManager(private val context: Context) {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             text = "Pause"
             setPadding(dp(10), dp(6), dp(10), dp(6))
-            background = pillBg(Color.parseColor("#33FFFFFF"), dp(16))
+            background = pillBg(Color.parseColor("#44FFFFFF"), dp(16))
             setOnClickListener {
+                bumpOpacity()
                 ScreenRecorderService.sendAction(context, ScreenRecorderService.ACTION_PAUSE)
             }
         }
@@ -80,8 +90,9 @@ class FloatingOverlayManager(private val context: Context) {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             text = "Stop"
             setPadding(dp(10), dp(6), dp(10), dp(6))
-            background = pillBg(Color.parseColor("#FF453A"), dp(16))
+            background = pillBg(Color.parseColor("#CCFF453A"), dp(16))
             setOnClickListener {
+                bumpOpacity()
                 ScreenRecorderService.sendAction(context, ScreenRecorderService.ACTION_STOP)
             }
         }
@@ -110,12 +121,15 @@ class FloatingOverlayManager(private val context: Context) {
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_SECURE,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
             x = dp(16)
             y = dp(120)
+            // Visible to user, softer in capture when secure flag is not honored
+            alpha = ALPHA_ACTIVE
         }
 
         enableDrag(container, params)
@@ -126,8 +140,10 @@ class FloatingOverlayManager(private val context: Context) {
             timerView = timer
             pauseView = pause
             layoutParams = params
+            scheduleIdleFade()
         } catch (_: Exception) {
             rootView = null
+            layoutParams = null
         }
     }
 
@@ -139,6 +155,7 @@ class FloatingOverlayManager(private val context: Context) {
         pauseView?.apply {
             text = if (isPaused) "Resume" else "Pause"
             setOnClickListener {
+                bumpOpacity()
                 val action = if (isPaused) {
                     ScreenRecorderService.ACTION_RESUME
                 } else {
@@ -150,9 +167,11 @@ class FloatingOverlayManager(private val context: Context) {
         timerView?.setTextColor(
             if (isPaused) Color.parseColor("#FF9F0A") else Color.parseColor("#30D158"),
         )
+        bumpOpacity()
     }
 
     fun remove() {
+        mainHandler.removeCallbacks(fadeRunnable)
         val view = rootView ?: return
         try {
             windowManager.removeView(view)
@@ -164,24 +183,76 @@ class FloatingOverlayManager(private val context: Context) {
         layoutParams = null
     }
 
+    private fun bumpOpacity() {
+        applyWindowAlpha(ALPHA_ACTIVE)
+        scheduleIdleFade()
+    }
+
+    private fun scheduleIdleFade() {
+        mainHandler.removeCallbacks(fadeRunnable)
+        mainHandler.postDelayed(fadeRunnable, IDLE_FADE_MS)
+    }
+
+    private fun applyWindowAlpha(value: Float) {
+        val params = layoutParams ?: return
+        val view = rootView ?: return
+        params.alpha = value
+        try {
+            windowManager.updateViewLayout(view, params)
+        } catch (_: Exception) {
+        }
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     private fun enableDrag(view: View, params: WindowManager.LayoutParams) {
         view.setOnTouchListener { v, event ->
-            when (event.action) {
+            when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     dragStartX = params.x
                     dragStartY = params.y
                     touchStartX = event.rawX
                     touchStartY = event.rawY
+                    movedDuringGesture = false
+                    bumpOpacity()
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    params.x = dragStartX + (event.rawX - touchStartX).toInt()
-                    params.y = dragStartY + (event.rawY - touchStartY).toInt()
-                    try {
-                        windowManager.updateViewLayout(v, params)
-                    } catch (_: Exception) {
+                    val dx = event.rawX - touchStartX
+                    val dy = event.rawY - touchStartY
+                    if (dx * dx + dy * dy > 64f) {
+                        movedDuringGesture = true
                     }
+                    if (movedDuringGesture) {
+                        params.x = dragStartX + dx.toInt()
+                        params.y = dragStartY + dy.toInt()
+                        try {
+                            windowManager.updateViewLayout(v, params)
+                        } catch (_: Exception) {
+                        }
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    scheduleIdleFade()
+                    if (!movedDuringGesture && v is LinearLayout) {
+                        // Forward tap to Pause/Stop children (timer is display-only).
+                        val localX = event.x
+                        val localY = event.y
+                        for (i in 0 until v.childCount) {
+                            val child = v.getChildAt(i)
+                            if (child === timerView) continue
+                            if (localX >= child.left && localX < child.right &&
+                                localY >= child.top && localY < child.bottom
+                            ) {
+                                child.performClick()
+                                break
+                            }
+                        }
+                    }
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    scheduleIdleFade()
                     true
                 }
                 else -> false
@@ -197,6 +268,10 @@ class FloatingOverlayManager(private val context: Context) {
     }
 
     companion object {
+        private const val ALPHA_ACTIVE = 0.88f
+        private const val ALPHA_IDLE = 0.38f
+        private const val IDLE_FADE_MS = 2500L
+
         fun canDrawOverlays(context: Context): Boolean = Settings.canDrawOverlays(context)
 
         fun createOverlaySettingsIntent(context: Context): Intent {
