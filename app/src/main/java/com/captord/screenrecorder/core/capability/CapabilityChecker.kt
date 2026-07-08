@@ -60,10 +60,20 @@ object CapabilityChecker {
             config.videoCodec
         }
 
-        // Advanced not available in Phase 2 runtime
-        val engineType = RecordingConfig.ENGINE_STANDARD
+        val engineType = when (config.engineType) {
+            RecordingConfig.ENGINE_ADVANCED -> RecordingConfig.ENGINE_ADVANCED
+            else -> RecordingConfig.ENGINE_STANDARD
+        }
 
-        val audioSource = if (config.audioSource != "mic") "mic" else config.audioSource
+        // Internal/Both only valid on Advanced + API support.
+        val audioSource = when {
+            engineType != RecordingConfig.ENGINE_ADVANCED -> "mic"
+            config.audioSource.equals("internal", ignoreCase = true) &&
+                !capability.supportsInternalAudio -> "mic"
+            config.audioSource.equals("both", ignoreCase = true) &&
+                !capability.supportsInternalAudio -> "mic"
+            else -> config.audioSource
+        }
 
         return config.copy(
             engineType = engineType,

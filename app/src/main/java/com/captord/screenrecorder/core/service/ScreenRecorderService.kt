@@ -13,9 +13,11 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.captord.screenrecorder.core.engine.AdvancedRecorderEngine
 import com.captord.screenrecorder.core.engine.EngineCallbacks
 import com.captord.screenrecorder.core.engine.RecordingEngine
 import com.captord.screenrecorder.core.engine.StandardRecorderEngine
+import com.captord.screenrecorder.feature.recorder.model.RecordingConfig as RecConfig
 import com.captord.screenrecorder.core.overlay.FloatingOverlayManager
 import com.captord.screenrecorder.feature.recorder.model.RecordingConfig
 import com.captord.screenrecorder.feature.recorder.model.RecordingErrorCode
@@ -217,7 +219,13 @@ class ScreenRecorderService : Service() {
         }
 
         if (engine == null) {
-            engine = StandardRecorderEngine(this, callbacks)
+            engine = if (config.engineType == RecConfig.ENGINE_ADVANCED) {
+                Log.i(TAG, "Using AdvancedRecorderEngine")
+                AdvancedRecorderEngine(this, callbacks)
+            } else {
+                Log.i(TAG, "Using StandardRecorderEngine")
+                StandardRecorderEngine(this, callbacks)
+            }
         }
         acquireWakeLock()
         try {
