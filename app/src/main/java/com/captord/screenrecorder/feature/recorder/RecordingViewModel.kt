@@ -58,6 +58,18 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
                 }
             }
             .launchIn(viewModelScope)
+        events
+            .onEach { event ->
+                if (event is RecordingEvent.AudioFallback) {
+                    _uiState.update {
+                        it.copy(
+                            lastErrorCode = "audio_fallback",
+                            lastErrorMessage = event.reason,
+                        )
+                    }
+                }
+            }
+            .launchIn(viewModelScope)
     }
 
     fun startRecording(config: RecordingConfig, resultCode: Int, projectionData: Intent) {

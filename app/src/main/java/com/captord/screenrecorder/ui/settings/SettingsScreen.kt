@@ -100,20 +100,34 @@ fun SettingsScreen(
             SegmentedButton(
                 selected = settings.engineType == RecordingConfig.ENGINE_STANDARD,
                 onClick = {
-                    if (!qualityLocked) viewModel.setEngineType(RecordingConfig.ENGINE_STANDARD)
+                    if (!qualityLocked) {
+                        viewModel.setEngineType(RecordingConfig.ENGINE_STANDARD)
+                        // System/Both need Advanced — fall back to mic on Standard.
+                        if (settings.audioSource != "mic") {
+                            viewModel.setAudioSource("mic")
+                        }
+                    }
                 },
                 shape = SegmentedButtonDefaults.itemShape(0, 2),
                 enabled = !qualityLocked,
             ) { Text("Standard") }
             SegmentedButton(
                 selected = settings.engineType == RecordingConfig.ENGINE_ADVANCED,
-                onClick = { },
+                onClick = {
+                    if (!qualityLocked) {
+                        viewModel.setEngineType(RecordingConfig.ENGINE_ADVANCED)
+                    }
+                },
                 shape = SegmentedButtonDefaults.itemShape(1, 2),
-                enabled = false,
+                enabled = !qualityLocked,
             ) { Text("Advanced") }
         }
         Text(
-            "Advanced engine arrives in a later phase.",
+            if (settings.engineType == RecordingConfig.ENGINE_ADVANCED) {
+                "MediaCodec path: high FPS, internal audio, safer split."
+            } else {
+                "Stable MediaRecorder path for screen + microphone."
+            },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
@@ -199,6 +213,8 @@ fun SettingsScreen(
             onCheckedChange = viewModel::setAudioEnabled,
         )
         if (settings.audioEnabled) {
+            val advanced = settings.engineType == RecordingConfig.ENGINE_ADVANCED
+            val internalOk = advanced && capabilities.supportsInternalAudio
             SettingLabel("Source")
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 SegmentedButton(
@@ -209,19 +225,27 @@ fun SettingsScreen(
                 ) { Text("Mic") }
                 SegmentedButton(
                     selected = settings.audioSource == "internal",
-                    onClick = { },
+                    onClick = {
+                        if (!qualityLocked && internalOk) viewModel.setAudioSource("internal")
+                    },
                     shape = SegmentedButtonDefaults.itemShape(1, 3),
-                    enabled = false,
+                    enabled = !qualityLocked && internalOk,
                 ) { Text("System") }
                 SegmentedButton(
                     selected = settings.audioSource == "both",
-                    onClick = { },
+                    onClick = {
+                        if (!qualityLocked && internalOk) viewModel.setAudioSource("both")
+                    },
                     shape = SegmentedButtonDefaults.itemShape(2, 3),
-                    enabled = false,
+                    enabled = !qualityLocked && internalOk,
                 ) { Text("Both") }
             }
             Text(
-                "System/Both require Advanced engine (later phase).",
+                when {
+                    !advanced -> "System/Both require Advanced engine."
+                    !capabilities.supportsInternalAudio -> "Internal audio needs Android 10+."
+                    else -> "Some apps block system audio capture; Mic still works."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(vertical = 4.dp),
