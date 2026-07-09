@@ -11,6 +11,7 @@ import android.media.MediaMuxer
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
+import android.os.Bundle
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Surface
@@ -56,6 +57,7 @@ class AdvancedRecorderEngine(
     private var muxerStarted = false
 
     private var videoThread: Thread? = null
+    private val videoEosRequested = AtomicBoolean(false)
     private var currentFilePath: String? = null
     private var currentFinalPath: String? = null
     private var currentConfig: RecordingConfig? = null
@@ -283,6 +285,7 @@ class AdvancedRecorderEngine(
             recording = true
             paused = false
             isRunning.set(true)
+            videoEosRequested.set(false)
 
             videoThread = Thread { drainVideoEncoder() }.apply { start() }
 
@@ -306,10 +309,18 @@ class AdvancedRecorderEngine(
         isRunning.set(false)
         stopTimer()
 
-        stopAudioPipeline()
+        stopAudioPipeline(flush = true)
 
         try {
-            videoThread?.join(1500)
+            videoEosRequested.set(true)
+            videoEncoder?.signalEndOfInputStream()
+        } catch (e: Exception) {
+            videoEosRequested.set(false)
+            Log.e(TAG, "Failed to signal video end of stream", e)
+        }
+
+        try {
+            videoThread?.join(3000)
         } catch (e: InterruptedException) {
             Log.e(TAG, "Thread join interrupted", e)
         }
@@ -457,10 +468,10 @@ class AdvancedRecorderEngine(
     }
 
     @Synchronized
-    private fun checkAndSplitFile() {
-        val path = currentFilePath ?: return
-        val config = currentConfig ?: return
-        if (config.maxFileSizeMb <= 0) return
+    private fun checkAndSplitFile(): Boolean {
+        val path = currentFilePath ?: return false
+        val config = currentConfig ?: return false
+        if (config.maxFileSizeMb <= 0) return false
 
         val file = File(path)
         if (file.exists() && file.length() >= config.maxFileSizeMb * 1024 * 1024) {
@@ -505,11 +516,18 @@ class AdvancedRecorderEngine(
                 firstVideoTimestampUs = -1L
                 audioCaptureManager?.resetSampleClock()
                 checkAndStartMuxer()
+                videoEncoder?.setParameters(
+                    Bundle().apply {
+                        putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0)
+                    },
+                )
+                return true
             } catch (e: Exception) {
                 Log.e(TAG, "Error splitting file: ${e.message}", e)
                 callbacks.onError(RecordingErrorCode.SPLIT_ERROR, "Failed to split recording: ${e.message}", false)
             }
         }
+        return false
     }
 
     @Synchronized
@@ -590,81 +608,121 @@ class AdvancedRecorderEngine(
     private fun drainVideoEncoder() {
         val bufferInfo = MediaCodec.BufferInfo()
         val encoder = videoEncoder ?: return
-        val muxer = mediaMuxer ?: return
+        var lastVideoWriteWallNs = System.nanoTime()
+        var lastStallLogNs = 0L
 
-        while (isRunning.get()) {
-            if (paused) {
-                try {
-                    Thread.sleep(50)
-                } catch (_: InterruptedException) {}
-                continue
-            }
-
-            val outputBufferIndex = encoder.dequeueOutputBuffer(bufferInfo, 10000)
-            if (outputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
-                try {
-                    Thread.sleep(10)
-                } catch (_: InterruptedException) {}
-                continue
-            } else if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                if (muxerStarted) {
-                    Log.e(TAG, "Format changed twice, illegal state")
+        while (isRunning.get() || videoEosRequested.get()) {
+            try {
+                // Always dequeue/release even while paused — soft pause must not leak codec buffers.
+                val timeoutUs = if (paused && !videoEosRequested.get()) 50_000L else 10_000L
+                val outputBufferIndex = encoder.dequeueOutputBuffer(bufferInfo, timeoutUs)
+                if (outputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
+                    val nowNs = System.nanoTime()
+                    if (isRunning.get() &&
+                        !paused &&
+                        videoWriteCount > 0 &&
+                        nowNs - lastVideoWriteWallNs > 2_000_000_000L &&
+                        nowNs - lastStallLogNs > 2_000_000_000L
+                    ) {
+                        lastStallLogNs = nowNs
+                        Log.w(
+                            TAG,
+                            "Video encoder stall: no output for ${(nowNs - lastVideoWriteWallNs) / 1_000_000}ms " +
+                                "videoN=$videoWriteCount vPts=${lastVideoPtsUs / 1000}ms " +
+                                "audioN=$audioWriteCount aPts=${lastAudioPtsUs / 1000}ms",
+                        )
+                    }
                     continue
-                }
-                val newFormat = encoder.outputFormat
-                videoTrackIndex = muxer.addTrack(newFormat)
-                checkAndStartMuxer()
-            } else if (outputBufferIndex >= 0) {
-                val encodedData = encoder.getOutputBuffer(outputBufferIndex) ?: continue
-                if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) {
-                    bufferInfo.size = 0
-                }
-
-                if (bufferInfo.size != 0) {
-                    // Skip frames before muxer is ready (don't buffer — just drop)
-                    if (!muxerStarted) {
-                        encoder.releaseOutputBuffer(outputBufferIndex, false)
+                } else if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    if (muxerStarted) {
+                        Log.e(TAG, "Format changed twice, illegal state")
                         continue
                     }
-
-                    // Codec-relative PTS (initializes startTimeNs on first frame).
-                    var syncedPts =
-                        getSynchronizedVideoPtsUs(bufferInfo.presentationTimeUs) - segmentStartTimeUs
-                    if (syncedPts < 0) syncedPts = 0L
-                    if (syncedPts < lastVideoPtsUs) {
-                        syncedPts = lastVideoPtsUs + 1
-                    }
-                    lastVideoPtsUs = syncedPts
-                    bufferInfo.presentationTimeUs = syncedPts
-
-                    checkAndSplitFile()
-
-                    encodedData.position(bufferInfo.offset)
-                    encodedData.limit(bufferInfo.offset + bufferInfo.size)
+                    val newFormat = encoder.outputFormat
+                    videoTrackIndex = mediaMuxer?.addTrack(newFormat) ?: -1
+                    checkAndStartMuxer()
+                } else if (outputBufferIndex >= 0) {
                     try {
-                        muxer.writeSampleData(videoTrackIndex, encodedData, bufferInfo)
-                        videoWriteCount++
-                        val nowNs = System.nanoTime()
-                        if (firstVideoWriteWallNs < 0) {
-                            firstVideoWriteWallNs = nowNs
-                            val sinceMuxerMs = if (muxerStartedWallNs > 0) {
-                                (nowNs - muxerStartedWallNs) / 1_000_000
-                            } else {
-                                -1L
+                        val encodedData = encoder.getOutputBuffer(outputBufferIndex)
+                        if (encodedData == null) {
+                            Log.w(TAG, "Null video output buffer index=$outputBufferIndex")
+                        } else {
+                            if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) {
+                                bufferInfo.size = 0
                             }
-                            Log.i(
-                                TAG,
-                                "A/V sync first video write: ptsUs=$syncedPts sinceMuxerMs=$sinceMuxerMs",
-                            )
+
+                            val canWrite = bufferInfo.size != 0 && muxerStarted && !paused
+                            if (canWrite) {
+                                val codecPtsUs = bufferInfo.presentationTimeUs
+                                var syncedPts =
+                                    getSynchronizedVideoPtsUs(codecPtsUs) - segmentStartTimeUs
+                                if (syncedPts < 0) syncedPts = 0L
+                                if (syncedPts < lastVideoPtsUs) {
+                                    syncedPts = lastVideoPtsUs + 1
+                                }
+
+                                if (checkAndSplitFile()) {
+                                    // First sample in a new segment starts its own timeline.
+                                    syncedPts = getSynchronizedVideoPtsUs(codecPtsUs)
+                                }
+                                lastVideoPtsUs = syncedPts
+                                bufferInfo.presentationTimeUs = syncedPts
+
+                                encodedData.position(bufferInfo.offset)
+                                encodedData.limit(bufferInfo.offset + bufferInfo.size)
+                                try {
+                                    val muxer = mediaMuxer
+                                        ?: throw IllegalStateException("No active muxer")
+                                    if (videoTrackIndex < 0) {
+                                        throw IllegalStateException("No video track")
+                                    }
+                                    muxer.writeSampleData(videoTrackIndex, encodedData, bufferInfo)
+                                    videoWriteCount++
+                                    lastVideoWriteWallNs = System.nanoTime()
+                                    val nowNs = lastVideoWriteWallNs
+                                    if (firstVideoWriteWallNs < 0) {
+                                        firstVideoWriteWallNs = nowNs
+                                        val sinceMuxerMs = if (muxerStartedWallNs > 0) {
+                                            (nowNs - muxerStartedWallNs) / 1_000_000
+                                        } else {
+                                            -1L
+                                        }
+                                        Log.i(
+                                            TAG,
+                                            "A/V sync first video write: ptsUs=$syncedPts " +
+                                                "sinceMuxerMs=$sinceMuxerMs",
+                                        )
+                                    }
+                                    maybeLogAvSkew(nowNs)
+                                } catch (e: Exception) {
+                                    Log.e(
+                                        TAG,
+                                        "Failed to write sample data to muxer: ${e.message}",
+                                        e,
+                                    )
+                                }
+                            }
                         }
-                        maybeLogAvSkew(nowNs)
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to write sample data to muxer: ${e.message}", e)
+                    } finally {
+                        // Always return the buffer — never continue without release.
+                        try {
+                            encoder.releaseOutputBuffer(outputBufferIndex, false)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to release video buffer: ${e.message}", e)
+                        }
+                    }
+                    if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
+                        videoEosRequested.set(false)
+                        Log.i(TAG, "Video encoder EOS after videoN=$videoWriteCount")
+                        break
                     }
                 }
-
-                encoder.releaseOutputBuffer(outputBufferIndex, false)
-                if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
+            } catch (e: Exception) {
+                Log.e(TAG, "Video drain error: ${e.message}", e)
+                if (!isRunning.get() && !videoEosRequested.get()) break
+                try {
+                    Thread.sleep(10)
+                } catch (_: InterruptedException) {
                     break
                 }
             }
@@ -715,9 +773,12 @@ class AdvancedRecorderEngine(
         currentAudioFormat = null
     }
 
-    private fun stopAudioPipeline() {
+    private fun stopAudioPipeline(flush: Boolean = false) {
         try { audioCaptureManager?.stop() } catch (_: Exception) {}
         audioCaptureManager = null
+        if (flush) {
+            try { audioEncoder?.stopAndDrain() } catch (_: Exception) {}
+        }
         try { audioEncoder?.stop() } catch (_: Exception) {}
         audioEncoder = null
     }
@@ -791,5 +852,3 @@ class AdvancedRecorderEngine(
         return maxOf(alignment, aligned)
     }
 }
-
-

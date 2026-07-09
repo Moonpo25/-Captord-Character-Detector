@@ -106,14 +106,45 @@ class AudioEncoder(
     }
 
     fun drain() {
+        drain(waitForEos = false)
+    }
+
+    /** Drains the codec after capture has stopped so its delayed AAC frames reach the muxer. */
+    fun stopAndDrain() {
+        val codec = encoder ?: return
+        if (!running.get()) return
+
+        try {
+            val inputBufferIndex = codec.dequeueInputBuffer(INPUT_TIMEOUT_US)
+            if (inputBufferIndex >= 0) {
+                codec.queueInputBuffer(
+                    inputBufferIndex,
+                    0,
+                    0,
+                    0,
+                    MediaCodec.BUFFER_FLAG_END_OF_STREAM,
+                )
+                drain(waitForEos = true)
+            } else {
+                Log.w(TAG, "No input buffer available to finish AAC encoder")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error finishing audio encoder: ${e.message}", e)
+        }
+    }
+
+    private fun drain(waitForEos: Boolean) {
         val codec = encoder ?: return
         if (!running.get()) return
         val bufferInfo = MediaCodec.BufferInfo()
+        val deadlineNs = System.nanoTime() + 2_000_000_000L
 
         try {
             while (running.get()) {
-                when (val outputBufferIndex = codec.dequeueOutputBuffer(bufferInfo, 0)) {
-                    MediaCodec.INFO_TRY_AGAIN_LATER -> break
+                when (val outputBufferIndex = codec.dequeueOutputBuffer(bufferInfo, if (waitForEos) 10_000 else 0)) {
+                    MediaCodec.INFO_TRY_AGAIN_LATER -> {
+                        if (!waitForEos || System.nanoTime() >= deadlineNs) break
+                    }
                     MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                         val out = codec.outputFormat
                         try {
