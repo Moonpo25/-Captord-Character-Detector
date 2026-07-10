@@ -412,13 +412,33 @@ class AudioCaptureManager(
         }
     }
 
+    /**
+     * Period-paced Both mix: emit exactly one PCM period per capture period.
+     * Pair mic+internal when both arrive; fill silence for a missing side.
+     * Never emit unpaired chunks (that doubled sample-clock PTS and caused stutter).
+     */
     private fun mixingLoop(shortsPerRead: Int) {
-        val outputBuffer = ByteArray(shortsPerRead * 2)
+        val periodFrames = if (framesPerRead > 0) framesPerRead else (shortsPerRead / maxOf(1, shortsPerFrame))
+        val periodShorts = periodFrames * shortsPerFrame
+        val outputBuffer = ByteArray(periodShorts * 2)
+        val periodMs = if (actualSampleRate > 0) {
+            maxOf(5L, (periodFrames * 1000L) / actualSampleRate)
+        } else {
+            20L
+        }
+        // Wait up to ~1 period for the late peer before filling silence.
+        val peerWaitMs = periodMs
+
+        var paired = 0L
+        var micOnly = 0L
+        var internalOnly = 0L
+        var dropped = 0L
+        var lastStatsNs = System.nanoTime()
 
         while (isRunning.get() && !Thread.currentThread().isInterrupted) {
             if (isPaused.get()) {
-                micQueue.poll()?.let { bufferPool.offer(it.buffer) }
-                internalQueue.poll()?.let { bufferPool.offer(it.buffer) }
+                drainQueueToPool(micQueue)
+                drainQueueToPool(internalQueue)
                 try {
                     Thread.sleep(5)
                 } catch (_: InterruptedException) {
@@ -427,35 +447,59 @@ class AudioCaptureManager(
                 continue
             }
 
+            // Keep queues from growing unbounded (late peer / mixer lag).
+            dropped += dropOldestIfOver(micQueue, QUEUE_CAPACITY / 2)
+            dropped += dropOldestIfOver(internalQueue, QUEUE_CAPACITY / 2)
+
+            val periodStartNs = System.nanoTime()
             var micChunk: AudioChunk? = null
             var internalChunk: AudioChunk? = null
-
             try {
-                micChunk = micQueue.poll(5, TimeUnit.MILLISECONDS)
+                micChunk = micQueue.poll(peerWaitMs, TimeUnit.MILLISECONDS)
             } catch (_: InterruptedException) {
                 break
             }
             try {
-                internalChunk = internalQueue.poll(if (micChunk == null) 5 else 0, TimeUnit.MILLISECONDS)
+                val elapsedMs = (System.nanoTime() - periodStartNs) / 1_000_000L
+                val remainMs = (peerWaitMs - elapsedMs).coerceAtLeast(0L)
+                // Always give the peer the remaining period window to pair.
+                internalChunk = internalQueue.poll(remainMs, TimeUnit.MILLISECONDS)
             } catch (_: InterruptedException) {
                 break
             }
 
-            if (micChunk == null && internalChunk == null) continue
-
-            val micBuffer = micChunk?.buffer
-            val internalBuffer = internalChunk?.buffer
-            val frames = maxOf(micChunk?.frames ?: 0, internalChunk?.frames ?: 0)
-            if (frames <= 0) {
-                micBuffer?.let { bufferPool.offer(it) }
-                internalBuffer?.let { bufferPool.offer(it) }
+            if (micChunk == null && internalChunk == null) {
+                // Neither side produced audio this period — advance clock with silence
+                // so A/V timeline does not stall if both capture briefly starve.
+                java.util.Arrays.fill(outputBuffer, 0.toByte())
+                deliverPcm(outputBuffer, outputBuffer.size, periodFrames)
                 continue
             }
 
-            val shorts = frames * shortsPerFrame
-            for (i in 0 until shorts) {
-                val micSample = micBuffer?.let { if (i < it.size) it[i].toInt() else 0 } ?: 0
-                val internalSample = internalBuffer?.let { if (i < it.size) it[i].toInt() else 0 } ?: 0
+            when {
+                micChunk != null && internalChunk != null -> paired++
+                micChunk != null -> micOnly++
+                else -> internalOnly++
+            }
+
+            val micBuffer = micChunk?.buffer
+            val internalBuffer = internalChunk?.buffer
+            val micFrames = micChunk?.frames ?: 0
+            val internalFrames = internalChunk?.frames ?: 0
+
+            // Always output a fixed period so PTS advances one step only.
+            for (i in 0 until periodShorts) {
+                val micSample = if (micBuffer != null && i < micFrames * shortsPerFrame && i < micBuffer.size) {
+                    micBuffer[i].toInt()
+                } else {
+                    0
+                }
+                val internalSample =
+                    if (internalBuffer != null && i < internalFrames * shortsPerFrame && i < internalBuffer.size) {
+                        internalBuffer[i].toInt()
+                    } else {
+                        0
+                    }
                 var mixed = micSample + internalSample
                 if (mixed > 32767) mixed = 32767
                 else if (mixed < -32768) mixed = -32768
@@ -463,11 +507,39 @@ class AudioCaptureManager(
                 outputBuffer[i * 2 + 1] = ((mixed ushr 8) and 0xFF).toByte()
             }
 
-            deliverPcm(outputBuffer, shorts * 2, frames)
+            deliverPcm(outputBuffer, outputBuffer.size, periodFrames)
 
             micBuffer?.let { bufferPool.offer(it) }
             internalBuffer?.let { bufferPool.offer(it) }
+
+            val nowNs = System.nanoTime()
+            if (nowNs - lastStatsNs >= 1_000_000_000L) {
+                lastStatsNs = nowNs
+                Log.i(
+                    TAG,
+                    "Both mix stats: paired=$paired micOnly=$micOnly internalOnly=$internalOnly " +
+                        "dropped=$dropped periodMs=$periodMs qMic=${micQueue.size} qInt=${internalQueue.size}",
+                )
+            }
         }
+    }
+
+    private fun drainQueueToPool(queue: LinkedBlockingQueue<AudioChunk>) {
+        var item = queue.poll()
+        while (item != null) {
+            bufferPool.offer(item.buffer)
+            item = queue.poll()
+        }
+    }
+
+    private fun dropOldestIfOver(queue: LinkedBlockingQueue<AudioChunk>, maxKeep: Int): Long {
+        var dropped = 0L
+        while (queue.size > maxKeep) {
+            val old = queue.poll() ?: break
+            bufferPool.offer(old.buffer)
+            dropped++
+        }
+        return dropped
     }
 
     private fun shortsToBytes(src: ShortArray, shortCount: Int, dst: ByteArray) {
