@@ -7,6 +7,7 @@ import android.os.Build
 import android.provider.Settings
 import com.captord.screenrecorder.feature.recorder.model.CapabilityReport
 import com.captord.screenrecorder.feature.recorder.model.RecordingConfig
+
 object CapabilityChecker {
 
     fun probe(context: Context): CapabilityReport {
@@ -43,9 +44,9 @@ object CapabilityChecker {
     }
 
     fun clampConfig(
-        config: com.captord.screenrecorder.feature.recorder.model.RecordingConfig,
+        config: RecordingConfig,
         capability: CapabilityReport,
-    ): com.captord.screenrecorder.feature.recorder.model.RecordingConfig {
+    ): RecordingConfig {
         var frameRate = config.frameRate
         if (frameRate !in capability.supportedFrameRates) {
             frameRate = capability.supportedFrameRates
