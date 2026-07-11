@@ -1,22 +1,19 @@
 package com.captord.screenrecorder.ui.navigation
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.VideoLibrary
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -25,17 +22,17 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.captord.screenrecorder.feature.gallery.GalleryViewModel
 import com.captord.screenrecorder.feature.recorder.RecordingViewModel
+import com.captord.screenrecorder.ui.components.FloatingNavToolbar
 import com.captord.screenrecorder.ui.gallery.GalleryScreen
 import com.captord.screenrecorder.ui.gallery.PreviewScreen
 import com.captord.screenrecorder.ui.home.HomeScreen
 import com.captord.screenrecorder.ui.settings.SettingsScreen
+import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 object CaptordRoutes {
-    const val HOME = "home"
-    const val GALLERY = "gallery"
-    const val SETTINGS = "settings"
+    const val MAIN = "main"
     const val PREVIEW = "preview/{encodedPath}"
 
     fun preview(path: String): String {
@@ -43,18 +40,6 @@ object CaptordRoutes {
         return "preview/$encoded"
     }
 }
-
-private data class TopLevelDestination(
-    val route: String,
-    val label: String,
-    val icon: ImageVector,
-)
-
-private val topLevelDestinations = listOf(
-    TopLevelDestination(CaptordRoutes.HOME, "Home", Icons.Filled.Home),
-    TopLevelDestination(CaptordRoutes.GALLERY, "Gallery", Icons.Filled.VideoLibrary),
-    TopLevelDestination(CaptordRoutes.SETTINGS, "Settings", Icons.Filled.Settings),
-)
 
 @Composable
 fun CaptordNavHost(
@@ -64,72 +49,25 @@ fun CaptordNavHost(
     modifier: Modifier = Modifier,
 ) {
     val navController = rememberNavController()
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentDestination = navBackStackEntry?.destination
-    val showBottomBar = currentDestination?.route?.startsWith("preview") != true
 
     Scaffold(
         modifier = modifier,
-        bottomBar = {
-            if (showBottomBar) {
-                NavigationBar {
-                    topLevelDestinations.forEach { destination ->
-                        val selected = currentDestination
-                            ?.hierarchy
-                            ?.any { it.route == destination.route } == true
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                navController.navigate(destination.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = {
-                                Icon(
-                                    imageVector = destination.icon,
-                                    contentDescription = destination.label,
-                                )
-                            },
-                            label = { Text(destination.label) },
-                        )
-                    }
-                }
-            }
-        },
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = CaptordRoutes.HOME,
+            startDestination = CaptordRoutes.MAIN,
             modifier = Modifier.padding(innerPadding),
         ) {
-            composable(CaptordRoutes.HOME) {
-                HomeScreen(
-                    viewModel = recordingViewModel,
+            composable(CaptordRoutes.MAIN) {
+                MainContainerScreen(
+                    onRequestStartRecording = onRequestStartRecording,
+                    recordingViewModel = recordingViewModel,
                     galleryViewModel = galleryViewModel,
-                    onRequestStart = onRequestStartRecording,
-                    onOpenGallery = {
-                        navController.navigate(CaptordRoutes.GALLERY) {
-                            launchSingleTop = true
-                        }
-                    },
                     onOpenPreview = { path ->
                         navController.navigate(CaptordRoutes.preview(path))
-                    },
+                    }
                 )
             }
-            composable(CaptordRoutes.GALLERY) {
-                GalleryScreen(
-                    onOpenPreview = { path ->
-                        navController.navigate(CaptordRoutes.preview(path))
-                    },
-                    galleryViewModel = galleryViewModel,
-                )
-            }
-            composable(CaptordRoutes.SETTINGS) { SettingsScreen() }
             composable(
                 route = CaptordRoutes.PREVIEW,
                 arguments = listOf(navArgument("encodedPath") { type = NavType.StringType }),
@@ -142,5 +80,56 @@ fun CaptordNavHost(
                 )
             }
         }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun MainContainerScreen(
+    onRequestStartRecording: () -> Unit,
+    recordingViewModel: RecordingViewModel,
+    galleryViewModel: GalleryViewModel,
+    onOpenPreview: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val pagerState = rememberPagerState(pageCount = { 3 })
+    val coroutineScope = rememberCoroutineScope()
+
+    Box(modifier = modifier.fillMaxSize()) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize()
+        ) { page ->
+            when (page) {
+                0 -> HomeScreen(
+                    viewModel = recordingViewModel,
+                    galleryViewModel = galleryViewModel,
+                    onRequestStart = onRequestStartRecording,
+                    onOpenGallery = {
+                        coroutineScope.launch {
+                            pagerState.animateScrollToPage(1)
+                        }
+                    },
+                    onOpenPreview = onOpenPreview,
+                )
+                1 -> GalleryScreen(
+                    onOpenPreview = onOpenPreview,
+                    galleryViewModel = galleryViewModel,
+                )
+                2 -> SettingsScreen()
+            }
+        }
+
+        FloatingNavToolbar(
+            currentPage = pagerState.currentPage,
+            onPageSelected = { page ->
+                coroutineScope.launch {
+                    pagerState.animateScrollToPage(page)
+                }
+            },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 24.dp)
+        )
     }
 }
