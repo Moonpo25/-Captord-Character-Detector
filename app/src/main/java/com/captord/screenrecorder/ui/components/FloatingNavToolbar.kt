@@ -23,6 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -32,7 +34,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -46,7 +47,8 @@ import kotlinx.coroutines.launch
 fun FloatingNavToolbar(
     currentPage: Int,
     onPageSelected: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    galleryBadgeCount: Int = 0
 ) {
     val haptic = rememberHapticFeedbackHelper()
     val scope = rememberCoroutineScope()
@@ -58,19 +60,14 @@ fun FloatingNavToolbar(
     )
 
     Surface(
-        modifier = modifier
-            .shadow(
-                elevation = 16.dp,
-                shape = CircleShape,
-                ambientColor = Color.Black.copy(alpha = 0.3f),
-                spotColor = Color.Black.copy(alpha = 0.4f)
-            ),
+        modifier = modifier.height(64.dp),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-        )
+        ),
+        shadowElevation = 12.dp
     ) {
         Row(
             modifier = Modifier
@@ -115,12 +112,29 @@ fun FloatingNavToolbar(
                             )
                         )
                     ) {
-                        Icon(
-                            imageVector = dest.icon,
-                            contentDescription = dest.label,
-                            tint = contentColor,
-                            modifier = Modifier.size(22.dp)
-                        )
+                        BadgedBox(
+                            badge = {
+                                if (dest.index == 1 && galleryBadgeCount > 0) {
+                                    Badge(
+                                        containerColor = MaterialTheme.colorScheme.error,
+                                        contentColor = Color.White
+                                    ) {
+                                        Text(
+                                            text = galleryBadgeCount.toString(),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 9.sp
+                                        )
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = dest.icon,
+                                contentDescription = dest.label,
+                                tint = contentColor,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
 
                         AnimatedVisibility(
                             visible = isSelected,

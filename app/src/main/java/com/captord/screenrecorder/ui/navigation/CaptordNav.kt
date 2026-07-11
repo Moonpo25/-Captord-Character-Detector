@@ -13,6 +13,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -34,29 +35,26 @@ import java.nio.charset.StandardCharsets
 object CaptordRoutes {
     const val MAIN = "main"
     const val PREVIEW = "preview/{encodedPath}"
-
-    fun preview(path: String): String {
-        val encoded = URLEncoder.encode(path, StandardCharsets.UTF_8.toString())
-        return "preview/$encoded"
-    }
 }
 
 @Composable
 fun CaptordNavHost(
     onRequestStartRecording: () -> Unit,
-    recordingViewModel: RecordingViewModel = viewModel(),
+    recordingViewModel: RecordingViewModel,
     galleryViewModel: GalleryViewModel = viewModel(),
     modifier: Modifier = Modifier,
 ) {
     val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
     Scaffold(
-        modifier = modifier,
-    ) { innerPadding ->
+        modifier = modifier.fillMaxSize(),
+    ) { paddingValues ->
         NavHost(
             navController = navController,
             startDestination = CaptordRoutes.MAIN,
-            modifier = Modifier.padding(innerPadding),
+            modifier = Modifier.padding(paddingValues)
         ) {
             composable(CaptordRoutes.MAIN) {
                 MainContainerScreen(
@@ -64,7 +62,8 @@ fun CaptordNavHost(
                     recordingViewModel = recordingViewModel,
                     galleryViewModel = galleryViewModel,
                     onOpenPreview = { path ->
-                        navController.navigate(CaptordRoutes.preview(path))
+                        val encoded = URLEncoder.encode(path, StandardCharsets.UTF_8.toString())
+                        navController.navigate("preview/$encoded")
                     }
                 )
             }
@@ -94,10 +93,12 @@ private fun MainContainerScreen(
 ) {
     val pagerState = rememberPagerState(pageCount = { 3 })
     val coroutineScope = rememberCoroutineScope()
+    val galleryState by galleryViewModel.uiState.collectAsStateWithLifecycle()
 
     Box(modifier = modifier.fillMaxSize()) {
         HorizontalPager(
             state = pagerState,
+            beyondViewportPageCount = 1,
             modifier = Modifier.fillMaxSize()
         ) { page ->
             when (page) {
@@ -115,6 +116,7 @@ private fun MainContainerScreen(
                 1 -> GalleryScreen(
                     onOpenPreview = onOpenPreview,
                     galleryViewModel = galleryViewModel,
+                    onRequestStart = onRequestStartRecording
                 )
                 2 -> SettingsScreen()
             }
@@ -127,6 +129,7 @@ private fun MainContainerScreen(
                     pagerState.animateScrollToPage(page)
                 }
             },
+            galleryBadgeCount = galleryState.items.size,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 24.dp)

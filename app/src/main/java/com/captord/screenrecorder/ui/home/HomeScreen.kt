@@ -16,6 +16,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,16 +25,23 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -68,7 +76,6 @@ import com.captord.screenrecorder.feature.gallery.GalleryViewModel
 import com.captord.screenrecorder.feature.recorder.RecordingViewModel
 import com.captord.screenrecorder.feature.recorder.model.RecordingSessionState
 import com.captord.screenrecorder.ui.components.squishable
-import com.captord.screenrecorder.ui.gallery.GalleryRow
 import com.captord.screenrecorder.ui.theme.CaptordSemanticColors
 import kotlinx.coroutines.launch
 
@@ -196,12 +203,15 @@ fun HomeScreen(
                     modifier = Modifier.size(136.dp)
                 ) {
                     if (isRecording) {
-                        // Pulsing outer glow
+                        // Pulsing outer glow (optimized via graphicsLayer to avoid recomposition)
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .scale(pulseScale)
-                                .alpha(pulseAlpha)
+                                .graphicsLayer {
+                                    scaleX = pulseScale
+                                    scaleY = pulseScale
+                                    alpha = pulseAlpha
+                                }
                                 .background(recColor.copy(alpha = 0.4f), CircleShape)
                         )
                         // Rotating dashed outer border
@@ -297,7 +307,9 @@ fun HomeScreen(
                         Box(
                             modifier = Modifier
                                 .size(8.dp)
-                                .alpha(if (isRecording) blinkAlpha else 1.0f)
+                                .graphicsLayer {
+                                    alpha = if (isRecording) blinkAlpha else 1.0f
+                                }
                                 .background(statusColor, CircleShape)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -460,7 +472,7 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        val recent = galleryState.items.take(3)
+        val recent = galleryState.items.take(5)
         if (recent.isEmpty()) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -480,17 +492,18 @@ fun HomeScreen(
                 }
             }
         } else {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.weight(1f, fill = false),
+            // M3 Expressive Carousel Horizontal Row
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
                 items(recent, key = { it.filePath }) { item ->
-                    GalleryRow(
+                    RecentRecordingCard(
                         item = item,
                         onOpen = { onOpenPreview(item.filePath) },
                         onShare = { ShareHelper.shareVideo(context, item.filePath) },
-                        onDelete = { galleryViewModel.requestDelete(item.filePath) },
-                        modifier = Modifier.squishable(scaleDown = 0.97f)
+                        onDelete = { galleryViewModel.requestDelete(item.filePath) }
                     )
                 }
             }
@@ -518,6 +531,112 @@ fun HomeScreen(
                 }
             },
         )
+    }
+}
+
+@Composable
+private fun RecentRecordingCard(
+    item: com.captord.screenrecorder.core.gallery.RecordingItem,
+    onOpen: () -> Unit,
+    onShare: () -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val haptic = rememberHapticFeedbackHelper()
+    val scope = rememberCoroutineScope()
+    
+    Card(
+        modifier = modifier
+            .width(220.dp)
+            .height(130.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .squishable(scaleDown = 0.95f)
+            .clickable { onOpen() },
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    // Play icon container
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    // Actions
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        IconButton(
+                            onClick = {
+                                scope.launch { haptic.click() }
+                                onShare()
+                            },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "Share",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                scope.launch { haptic.click() }
+                                onDelete()
+                            },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteOutline,
+                                contentDescription = "Delete",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+
+                Column {
+                    Text(
+                        text = item.filePath.substringAfterLast('/'),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "${formatDuration(item.durationMs ?: 0L)} · ${formatFileSize(item.fileSizeBytes)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
     }
 }
 
