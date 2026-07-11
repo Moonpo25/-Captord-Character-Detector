@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -49,9 +50,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -161,34 +159,20 @@ fun SettingsScreen(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Spacer(modifier = Modifier.height(6.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                SegmentedButton(
-                    selected = settings.engineType == RecordingConfig.ENGINE_STANDARD,
-                    onClick = {
-                        if (!qualityLocked) {
-                            scope.launch { haptic.doubleClick() }
-                            viewModel.setEngineType(RecordingConfig.ENGINE_STANDARD)
-                            if (settings.audioSource != "mic") {
-                                viewModel.setAudioSource("mic")
-                            }
-                        }
-                    },
-                    shape = SegmentedButtonDefaults.itemShape(0, 2),
-                    enabled = !qualityLocked,
-                ) { Text("Standard", fontWeight = FontWeight.Bold) }
-                SegmentedButton(
-                    selected = settings.engineType == RecordingConfig.ENGINE_ADVANCED,
-                    onClick = {
-                        if (!qualityLocked) {
-                            scope.launch { haptic.doubleClick() }
-                            viewModel.setEngineType(RecordingConfig.ENGINE_ADVANCED)
-                        }
-                    },
-                    shape = SegmentedButtonDefaults.itemShape(1, 2),
-                    enabled = !qualityLocked,
-                ) { Text("Advanced", fontWeight = FontWeight.Bold) }
-            }
+            Spacer(modifier = Modifier.height(8.dp))
+            ExpressiveButtonGroup(
+                selected = settings.engineType,
+                options = listOf(
+                    ExpressiveButtonOption(RecordingConfig.ENGINE_STANDARD, "Standard", !qualityLocked),
+                    ExpressiveButtonOption(RecordingConfig.ENGINE_ADVANCED, "Advanced", !qualityLocked)
+                ),
+                onSelectedChange = {
+                    viewModel.setEngineType(it)
+                    if (it == RecordingConfig.ENGINE_STANDARD && settings.audioSource != "mic") {
+                        viewModel.setAudioSource("mic")
+                    }
+                }
+            )
             Text(
                 text = if (settings.engineType == RecordingConfig.ENGINE_ADVANCED) {
                     "MediaCodec path: high FPS, internal audio, safer split."
@@ -197,7 +181,7 @@ fun SettingsScreen(
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 6.dp, bottom = 12.dp),
+                modifier = Modifier.padding(top = 8.dp, bottom = 12.dp),
             )
 
             ModernClickRow(
@@ -229,37 +213,21 @@ fun SettingsScreen(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Spacer(modifier = Modifier.height(6.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                SegmentedButton(
-                    selected = settings.videoCodec == "H264",
-                    onClick = {
-                        if (!qualityLocked) {
-                            scope.launch { haptic.doubleClick() }
-                            viewModel.setVideoCodec("H264")
-                        }
-                    },
-                    shape = SegmentedButtonDefaults.itemShape(0, 2),
-                    enabled = !qualityLocked,
-                ) { Text("H.264", fontWeight = FontWeight.Bold) }
-                SegmentedButton(
-                    selected = settings.videoCodec == "H265",
-                    onClick = {
-                        if (!qualityLocked && capabilities.supportsH265) {
-                            scope.launch { haptic.doubleClick() }
-                            viewModel.setVideoCodec("H265")
-                        }
-                    },
-                    shape = SegmentedButtonDefaults.itemShape(1, 2),
-                    enabled = !qualityLocked && capabilities.supportsH265,
-                ) { Text("H.265", fontWeight = FontWeight.Bold) }
-            }
+            Spacer(modifier = Modifier.height(8.dp))
+            ExpressiveButtonGroup(
+                selected = settings.videoCodec,
+                options = listOf(
+                    ExpressiveButtonOption("H264", "H.264", !qualityLocked),
+                    ExpressiveButtonOption("H265", "H.265", !qualityLocked && capabilities.supportsH265)
+                ),
+                onSelectedChange = { viewModel.setVideoCodec(it) }
+            )
             if (!capabilities.supportsH265) {
                 Text(
                     "H.265 (HEVC) is not supported by your hardware profile.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
+                    modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
                 )
             }
 
@@ -353,42 +321,16 @@ fun SettingsScreen(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(6.dp))
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    SegmentedButton(
-                        selected = settings.audioSource == "mic",
-                        onClick = {
-                            if (!qualityLocked) {
-                                scope.launch { haptic.doubleClick() }
-                                viewModel.setAudioSource("mic")
-                            }
-                        },
-                        shape = SegmentedButtonDefaults.itemShape(0, 3),
-                        enabled = !qualityLocked,
-                    ) { Text("Mic", fontWeight = FontWeight.Bold) }
-                    SegmentedButton(
-                        selected = settings.audioSource == "internal",
-                        onClick = {
-                            if (!qualityLocked && internalOk) {
-                                scope.launch { haptic.doubleClick() }
-                                viewModel.setAudioSource("internal")
-                            }
-                        },
-                        shape = SegmentedButtonDefaults.itemShape(1, 3),
-                        enabled = !qualityLocked && internalOk,
-                    ) { Text("System", fontWeight = FontWeight.Bold) }
-                    SegmentedButton(
-                        selected = settings.audioSource == "both",
-                        onClick = {
-                            if (!qualityLocked && internalOk) {
-                                scope.launch { haptic.doubleClick() }
-                                viewModel.setAudioSource("both")
-                            }
-                        },
-                        shape = SegmentedButtonDefaults.itemShape(2, 3),
-                        enabled = !qualityLocked && internalOk,
-                    ) { Text("Both", fontWeight = FontWeight.Bold) }
-                }
+                Spacer(modifier = Modifier.height(8.dp))
+                ExpressiveButtonGroup(
+                    selected = settings.audioSource,
+                    options = listOf(
+                        ExpressiveButtonOption("mic", "Mic", !qualityLocked),
+                        ExpressiveButtonOption("internal", "System", !qualityLocked && internalOk),
+                        ExpressiveButtonOption("both", "Both", !qualityLocked && internalOk)
+                    ),
+                    onSelectedChange = { viewModel.setAudioSource(it) }
+                )
                 Text(
                     text = when {
                         !advanced -> "System/Both options require Advanced engine."
@@ -397,7 +339,7 @@ fun SettingsScreen(
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+                    modifier = Modifier.padding(top = 8.dp, bottom = 12.dp),
                 )
 
                 Spacer(modifier = Modifier.height(6.dp))
@@ -407,31 +349,15 @@ fun SettingsScreen(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(6.dp))
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    SegmentedButton(
-                        selected = settings.sampleRate == 44_100,
-                        onClick = {
-                            if (!qualityLocked) {
-                                scope.launch { haptic.doubleClick() }
-                                viewModel.setSampleRate(44_100)
-                            }
-                        },
-                        shape = SegmentedButtonDefaults.itemShape(0, 2),
-                        enabled = !qualityLocked,
-                    ) { Text("44.1 kHz", fontWeight = FontWeight.Bold) }
-                    SegmentedButton(
-                        selected = settings.sampleRate == 48_000,
-                        onClick = {
-                            if (!qualityLocked) {
-                                scope.launch { haptic.doubleClick() }
-                                viewModel.setSampleRate(48_000)
-                            }
-                        },
-                        shape = SegmentedButtonDefaults.itemShape(1, 2),
-                        enabled = !qualityLocked,
-                    ) { Text("48 kHz", fontWeight = FontWeight.Bold) }
-                }
+                Spacer(modifier = Modifier.height(8.dp))
+                ExpressiveButtonGroup(
+                    selected = settings.sampleRate,
+                    options = listOf(
+                        ExpressiveButtonOption(44_100, "44.1 kHz", !qualityLocked),
+                        ExpressiveButtonOption(48_000, "48 kHz", !qualityLocked)
+                    ),
+                    onSelectedChange = { viewModel.setSampleRate(it) }
+                )
 
                 Spacer(modifier = Modifier.height(14.dp))
                 Text(
@@ -440,31 +366,15 @@ fun SettingsScreen(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(6.dp))
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    SegmentedButton(
-                        selected = settings.audioChannel == 1,
-                        onClick = {
-                            if (!qualityLocked) {
-                                scope.launch { haptic.doubleClick() }
-                                viewModel.setAudioChannel(1)
-                            }
-                        },
-                        shape = SegmentedButtonDefaults.itemShape(0, 2),
-                        enabled = !qualityLocked,
-                    ) { Text("Mono", fontWeight = FontWeight.Bold) }
-                    SegmentedButton(
-                        selected = settings.audioChannel == 2,
-                        onClick = {
-                            if (!qualityLocked) {
-                                scope.launch { haptic.doubleClick() }
-                                viewModel.setAudioChannel(2)
-                            }
-                        },
-                        shape = SegmentedButtonDefaults.itemShape(1, 2),
-                        enabled = !qualityLocked,
-                    ) { Text("Stereo", fontWeight = FontWeight.Bold) }
-                }
+                Spacer(modifier = Modifier.height(8.dp))
+                ExpressiveButtonGroup(
+                    selected = settings.audioChannel,
+                    options = listOf(
+                        ExpressiveButtonOption(1, "Mono", !qualityLocked),
+                        ExpressiveButtonOption(2, "Stereo", !qualityLocked)
+                    ),
+                    onSelectedChange = { viewModel.setAudioChannel(it) }
+                )
 
                 Spacer(modifier = Modifier.height(12.dp))
                 ModernClickRow(
@@ -576,23 +486,16 @@ fun SettingsScreen(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Spacer(modifier = Modifier.height(6.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                listOf(
-                    AppSettings.THEME_SYSTEM to "System",
-                    AppSettings.THEME_LIGHT to "Light",
-                    AppSettings.THEME_DARK to "Dark",
-                ).forEachIndexed { index, (value, label) ->
-                    SegmentedButton(
-                        selected = settings.themeMode == value,
-                        onClick = {
-                            scope.launch { haptic.doubleClick() }
-                            viewModel.setThemeMode(value)
-                        },
-                        shape = SegmentedButtonDefaults.itemShape(index, 3),
-                    ) { Text(label, fontWeight = FontWeight.Bold) }
-                }
-            }
+            Spacer(modifier = Modifier.height(8.dp))
+            ExpressiveButtonGroup(
+                selected = settings.themeMode,
+                options = listOf(
+                    ExpressiveButtonOption(AppSettings.THEME_SYSTEM, "System"),
+                    ExpressiveButtonOption(AppSettings.THEME_LIGHT, "Light"),
+                    ExpressiveButtonOption(AppSettings.THEME_DARK, "Dark")
+                ),
+                onSelectedChange = { viewModel.setThemeMode(it) }
+            )
 
             Spacer(modifier = Modifier.height(14.dp))
             ModernSwitchRow(
@@ -1034,6 +937,84 @@ private fun ModernSwitchRow(
                     }
                 }
             )
+        }
+    }
+}
+
+private data class ExpressiveButtonOption<T>(
+    val value: T,
+    val label: String,
+    val enabled: Boolean = true
+)
+
+@Composable
+private fun <T> ExpressiveButtonGroup(
+    selected: T,
+    options: List<ExpressiveButtonOption<T>>,
+    onSelectedChange: (T) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val haptic = rememberHapticFeedbackHelper()
+    val scope = rememberCoroutineScope()
+
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        options.forEach { option ->
+            val isSelected = option.value == selected
+            val containerColor = if (isSelected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+            }
+            val contentColor = if (isSelected) {
+                MaterialTheme.colorScheme.onPrimary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            }
+
+            val isClickable = option.enabled
+
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .squishable(enabled = isClickable, scaleDown = 0.93f)
+                    .clickable(enabled = isClickable) {
+                        scope.launch { haptic.click() }
+                        onSelectedChange(option.value)
+                    },
+                shape = CircleShape,
+                color = if (isClickable) containerColor else containerColor.copy(alpha = 0.4f),
+                contentColor = if (isClickable) contentColor else contentColor.copy(alpha = 0.4f),
+                border = if (!isSelected) {
+                    BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+                } else null
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp, horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isSelected) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = if (isClickable) contentColor else contentColor.copy(alpha = 0.4f)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+                    Text(
+                        text = option.label,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
+            }
         }
     }
 }
