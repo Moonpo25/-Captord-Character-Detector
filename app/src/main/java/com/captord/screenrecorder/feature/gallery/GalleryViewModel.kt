@@ -18,6 +18,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -36,6 +40,11 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
 
     private val _uiState = MutableStateFlow(GalleryUiState(isLoading = true))
     val uiState: StateFlow<GalleryUiState> = _uiState.asStateFlow()
+
+    val badgeCount: StateFlow<Int> = _uiState
+        .map { it.items.size }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     private var pendingConfirmUri: Uri? = null
     private var pendingConfirmPath: String? = null

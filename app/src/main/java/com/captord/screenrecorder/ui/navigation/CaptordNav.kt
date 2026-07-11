@@ -93,7 +93,7 @@ private fun MainContainerScreen(
 ) {
     val pagerState = rememberPagerState(pageCount = { 3 })
     val coroutineScope = rememberCoroutineScope()
-    val galleryState by galleryViewModel.uiState.collectAsStateWithLifecycle()
+    val galleryBadgeCount by galleryViewModel.badgeCount.collectAsStateWithLifecycle()
 
     Box(modifier = modifier.fillMaxSize()) {
         HorizontalPager(
@@ -129,7 +129,7 @@ private fun MainContainerScreen(
                     pagerState.animateScrollToPage(page)
                 }
             },
-            galleryBadgeCount = galleryState.items.size,
+            galleryBadgeCount = galleryBadgeCount,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 24.dp)

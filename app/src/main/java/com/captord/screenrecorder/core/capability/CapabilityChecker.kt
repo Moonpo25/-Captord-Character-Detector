@@ -10,7 +10,20 @@ import com.captord.screenrecorder.feature.recorder.model.RecordingConfig
 
 object CapabilityChecker {
 
+    @Volatile
+    private var cachedReport: CapabilityReport? = null
+
     fun probe(context: Context): CapabilityReport {
+        cachedReport?.let { return it }
+        synchronized(this) {
+            cachedReport?.let { return it }
+            val report = doProbe(context)
+            cachedReport = report
+            return report
+        }
+    }
+
+    private fun doProbe(context: Context): CapabilityReport {
         val codecList = MediaCodecList(MediaCodecList.ALL_CODECS)
         val encoders = codecList.codecInfos.filter { it.isEncoder }
 

@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -31,11 +32,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     val capabilities: StateFlow<CapabilityReport> = kotlinx.coroutines.flow.flow {
         emit(CapabilityChecker.probe(application))
-    }.stateIn(
-        viewModelScope,
-        SharingStarted.WhileSubscribed(5_000),
-        CapabilityReport.probeMinimal(),
-    )
+    }.flowOn(kotlinx.coroutines.Dispatchers.IO)
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            CapabilityReport.probeMinimal(),
+        )
 
     val recordingUiState: StateFlow<RecordingUiState> = recordingRepository.uiState
 
