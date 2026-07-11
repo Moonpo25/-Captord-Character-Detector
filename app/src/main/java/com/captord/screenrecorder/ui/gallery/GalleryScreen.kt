@@ -1,5 +1,6 @@
 package com.captord.screenrecorder.ui.gallery
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,14 +19,19 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.captord.screenrecorder.core.gallery.ShareHelper
+import com.captord.screenrecorder.core.haptics.HapticFeedbackHelper
+import com.captord.screenrecorder.core.haptics.rememberHapticFeedbackHelper
 import com.captord.screenrecorder.feature.gallery.GalleryViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun GalleryScreen(
@@ -36,6 +42,9 @@ fun GalleryScreen(
     val uiState by galleryViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
+    val haptic = rememberHapticFeedbackHelper()
+    val scope = rememberCoroutineScope()
+
     LaunchedEffect(Unit) {
         galleryViewModel.refresh()
     }
@@ -43,10 +52,17 @@ fun GalleryScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            .padding(horizontal = 24.dp)
+            .padding(top = 16.dp),
     ) {
-        Text("Gallery", style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(12.dp))
+        Text(
+            text = "Gallery",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Black,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(Modifier.height(20.dp))
 
         when {
             uiState.isLoading && uiState.items.isEmpty() -> {
@@ -57,16 +73,18 @@ fun GalleryScreen(
             uiState.items.isEmpty() -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "No recordings yet. Tap the shutter to capture your screen.",
+                        text = "No recordings found. Tap record to start.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
             else -> {
                 LazyColumn(
-                    contentPadding = PaddingValues(bottom = 88.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(bottom = 96.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     items(uiState.items, key = { it.filePath }) { item ->
                         GalleryRow(
@@ -84,13 +102,22 @@ fun GalleryScreen(
     uiState.pendingDeletePath?.let { path ->
         AlertDialog(
             onDismissRequest = galleryViewModel::cancelDeleteDialog,
-            title = { Text("Delete recording") },
-            text = { Text("Delete ${path.substringAfterLast('/')}? This cannot be undone.") },
+            title = { Text("Delete file", fontWeight = FontWeight.Bold) },
+            text = { Text("This will permanently remove ${path.substringAfterLast('/')} from storage.") },
             confirmButton = {
-                TextButton(onClick = galleryViewModel::confirmDelete) { Text("Delete") }
+                TextButton(
+                    onClick = {
+                        scope.launch { haptic.heavyClick() }
+                        galleryViewModel.confirmDelete()
+                    }
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
             },
             dismissButton = {
-                TextButton(onClick = galleryViewModel::cancelDeleteDialog) { Text("Cancel") }
+                TextButton(onClick = galleryViewModel::cancelDeleteDialog) {
+                    Text("Cancel", fontWeight = FontWeight.Bold)
+                }
             },
         )
     }

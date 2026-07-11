@@ -1,5 +1,14 @@
 package com.captord.screenrecorder.ui.home
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.EaseInOutCirc
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -13,11 +22,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -26,9 +41,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -36,11 +55,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.captord.screenrecorder.core.gallery.ShareHelper
+import com.captord.screenrecorder.core.haptics.HapticFeedbackHelper
+import com.captord.screenrecorder.core.haptics.rememberHapticFeedbackHelper
 import com.captord.screenrecorder.feature.gallery.GalleryViewModel
 import com.captord.screenrecorder.feature.recorder.RecordingViewModel
 import com.captord.screenrecorder.feature.recorder.model.RecordingSessionState
+import com.captord.screenrecorder.ui.components.squishable
 import com.captord.screenrecorder.ui.gallery.GalleryRow
 import com.captord.screenrecorder.ui.theme.CaptordSemanticColors
+import kotlinx.coroutines.launch
 
 @Composable
 fun HomeScreen(
@@ -57,7 +80,10 @@ fun HomeScreen(
     val context = LocalContext.current
     val dark = isSystemInDarkTheme()
     val recColor = if (dark) CaptordSemanticColors.recActiveDark else CaptordSemanticColors.recActiveLight
-    val pauseColor = if (dark) CaptordSemanticColors.recPausedDark else CaptordSemanticColors.recPausedLight
+    val amusementColor = MaterialTheme.colorScheme.primary
+
+    val haptic = rememberHapticFeedbackHelper()
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(uiState.sessionState, uiState.lastFinalPath) {
         if (uiState.sessionState == RecordingSessionState.IDLE) {
@@ -65,166 +91,356 @@ fun HomeScreen(
         }
     }
 
+    LaunchedEffect(countdownRemaining) {
+        if (countdownRemaining > 0) {
+            haptic.performHaptic(HapticFeedbackHelper.HapticIntensity.TEXTURE_TICK)
+        }
+    }
+
+    val isRecording = uiState.sessionState == RecordingSessionState.RECORDING
+    val isPaused = uiState.sessionState == RecordingSessionState.PAUSED
+    val isActive = isRecording || isPaused
+
     val statusLabel = when (uiState.sessionState) {
-        RecordingSessionState.IDLE -> "Idle"
+        RecordingSessionState.IDLE -> "Ready"
         RecordingSessionState.COUNTDOWN -> "Countdown"
         RecordingSessionState.RECORDING -> "Recording"
         RecordingSessionState.PAUSED -> "Paused"
-        RecordingSessionState.STOPPING -> "Stopping"
+        RecordingSessionState.STOPPING -> "Finalizing"
         RecordingSessionState.ERROR -> "Error"
     }
 
     val statusColor = when (uiState.sessionState) {
         RecordingSessionState.RECORDING -> recColor
-        RecordingSessionState.PAUSED -> pauseColor
+        RecordingSessionState.PAUSED -> amusementColor.copy(alpha = 0.8f)
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.15f,
+        targetValue = 0.65f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "alpha"
+    )
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = 1.48f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = EaseInOutCirc),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            .padding(horizontal = 24.dp)
+            .padding(top = 16.dp),
     ) {
         Text(
             text = "Captord",
-            style = MaterialTheme.typography.headlineSmall,
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Black,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(bottom = 24.dp)
         )
-        Spacer(modifier = Modifier.height(16.dp))
 
-        Column(
+        // Main recording control console
+        Surface(
             modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
         ) {
-            // Shutter
-            val shutterColor = when (uiState.sessionState) {
-                RecordingSessionState.RECORDING -> recColor
-                RecordingSessionState.PAUSED -> pauseColor
-                else -> MaterialTheme.colorScheme.primary
-            }
-            Box(
-                contentAlignment = Alignment.Center,
+            Column(
                 modifier = Modifier
-                    .size(if (uiState.sessionState == RecordingSessionState.RECORDING) 72.dp else 64.dp)
-                    .clip(CircleShape)
-                    .background(shutterColor)
-                    .clickable {
-                        when (uiState.sessionState) {
-                            RecordingSessionState.IDLE, RecordingSessionState.ERROR -> onRequestStart()
-                            RecordingSessionState.RECORDING, RecordingSessionState.PAUSED ->
-                                viewModel.stopRecording()
-                            else -> Unit
-                        }
-                    },
+                    .fillMaxWidth()
+                    .padding(vertical = 32.dp, horizontal = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    text = when (uiState.sessionState) {
-                        RecordingSessionState.RECORDING, RecordingSessionState.PAUSED -> "■"
-                        RecordingSessionState.COUNTDOWN -> countdownRemaining.toString()
-                        else -> "●"
-                    },
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            // Status strip
-            Surface(
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                // Shutter Console Box with Pulse Ring
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.size(112.dp)
                 ) {
-                    Spacer(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(statusColor),
-                    )
-                    Text(
-                        text = statusLabel,
-                        color = statusColor,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = if (uiState.sessionState == RecordingSessionState.COUNTDOWN) {
-                            countdownRemaining.toString()
-                        } else {
-                            formatDuration(uiState.durationMs)
-                        },
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    if (uiState.fileSizeBytes > 0) {
-                        Text(
-                            text = formatFileSize(uiState.fileSizeBytes),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    if (isRecording) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .scale(pulseScale)
+                                .alpha(pulseAlpha)
+                                .background(recColor.copy(alpha = 0.4f), CircleShape)
                         )
                     }
+
+                    // Tactile camera-styled shutter button
+                    val shutterBg = when {
+                        isRecording -> recColor
+                        isPaused -> amusementColor.copy(alpha = 0.8f)
+                        else -> amusementColor
+                    }
+
+                    Surface(
+                        modifier = Modifier
+                            .size(76.dp)
+                            .squishable(enabled = true, scaleDown = 0.90f)
+                            .clickable {
+                                when (uiState.sessionState) {
+                                    RecordingSessionState.IDLE, RecordingSessionState.ERROR -> {
+                                        scope.launch { haptic.heavyClick() }
+                                        onRequestStart()
+                                    }
+                                    RecordingSessionState.RECORDING, RecordingSessionState.PAUSED -> {
+                                        scope.launch { haptic.heavyClick() }
+                                        viewModel.stopRecording()
+                                    }
+                                    else -> Unit
+                                }
+                            },
+                        shape = CircleShape,
+                        color = shutterBg,
+                        border = BorderStroke(4.dp, MaterialTheme.colorScheme.surfaceContainerHigh),
+                        shadowElevation = 6.dp
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            if (isActive) {
+                                Icon(
+                                    imageVector = Icons.Default.Stop,
+                                    contentDescription = "Stop recording",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            } else if (uiState.sessionState == RecordingSessionState.COUNTDOWN) {
+                                Text(
+                                    text = countdownRemaining.toString(),
+                                    color = Color.White,
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.FiberManualRecord,
+                                    contentDescription = "Start recording",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                            }
+                        }
+                    }
                 }
-            }
 
-            Spacer(Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                when (uiState.sessionState) {
-                    RecordingSessionState.IDLE, RecordingSessionState.ERROR -> {
-                        Button(onClick = onRequestStart) { Text("Start") }
-                    }
-                    RecordingSessionState.COUNTDOWN -> {
-                        OutlinedButton(onClick = viewModel::cancelCountdown) { Text("Cancel") }
-                    }
-                    RecordingSessionState.RECORDING -> {
-                        OutlinedButton(onClick = viewModel::pauseRecording) { Text("Pause") }
-                        Button(onClick = viewModel::stopRecording) { Text("Stop") }
-                    }
-                    RecordingSessionState.PAUSED -> {
-                        OutlinedButton(onClick = viewModel::resumeRecording) { Text("Resume") }
-                        Button(onClick = viewModel::stopRecording) { Text("Stop") }
-                    }
-                    RecordingSessionState.STOPPING -> {
-                        Button(onClick = {}, enabled = false) { Text("Working…") }
+                // Time status pill
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .animateContentSize()
+                            .padding(horizontal = 18.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(statusColor, CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = statusLabel,
+                            color = statusColor,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (uiState.sessionState == RecordingSessionState.COUNTDOWN) {
+                                "00:0$countdownRemaining"
+                            } else {
+                                formatDuration(uiState.durationMs)
+                            },
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 14.sp
+                        )
+                        if (uiState.fileSizeBytes > 0) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "·  " + formatFileSize(uiState.fileSizeBytes),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
-            }
 
-            uiState.lastErrorMessage?.let { message ->
-                Text(
-                    text = message,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Action buttons row (Spring styled & Haptic trigger)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    when (uiState.sessionState) {
+                        RecordingSessionState.IDLE, RecordingSessionState.ERROR -> {
+                            Button(
+                                onClick = {
+                                    scope.launch { haptic.click() }
+                                    onRequestStart()
+                                },
+                                shape = CircleShape,
+                                modifier = Modifier.squishable(),
+                                colors = ButtonDefaults.buttonColors(containerColor = amusementColor)
+                            ) {
+                                Text("Start screen capture", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        RecordingSessionState.COUNTDOWN -> {
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch { haptic.click() }
+                                    viewModel.cancelCountdown()
+                                },
+                                shape = CircleShape,
+                                modifier = Modifier.squishable()
+                            ) {
+                                Text("Cancel", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        RecordingSessionState.RECORDING -> {
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch { haptic.click() }
+                                    viewModel.pauseRecording()
+                                },
+                                shape = CircleShape,
+                                modifier = Modifier.squishable()
+                            ) {
+                                Text("Pause", fontWeight = FontWeight.Bold)
+                            }
+                            Button(
+                                onClick = {
+                                    scope.launch { haptic.heavyClick() }
+                                    viewModel.stopRecording()
+                                },
+                                shape = CircleShape,
+                                modifier = Modifier.squishable(),
+                                colors = ButtonDefaults.buttonColors(containerColor = recColor)
+                            ) {
+                                Text("Stop", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        RecordingSessionState.PAUSED -> {
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch { haptic.click() }
+                                    viewModel.resumeRecording()
+                                },
+                                shape = CircleShape,
+                                modifier = Modifier.squishable()
+                            ) {
+                                Text("Resume", fontWeight = FontWeight.Bold)
+                            }
+                            Button(
+                                onClick = {
+                                    scope.launch { haptic.heavyClick() }
+                                    viewModel.stopRecording()
+                                },
+                                shape = CircleShape,
+                                modifier = Modifier.squishable(),
+                                colors = ButtonDefaults.buttonColors(containerColor = recColor)
+                            ) {
+                                Text("Stop", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        RecordingSessionState.STOPPING -> {
+                            Button(
+                                onClick = {},
+                                enabled = false,
+                                shape = CircleShape
+                            ) {
+                                Text("Writing output…", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                uiState.lastErrorMessage?.let { message ->
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(24.dp))
 
+        // Recent items header
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Recent", style = MaterialTheme.typography.titleMedium)
-            TextButton(onClick = onOpenGallery) { Text("See all") }
+            Text(
+                text = "Recent recordings",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            TextButton(
+                onClick = {
+                    scope.launch { haptic.click() }
+                    onOpenGallery()
+                },
+                modifier = Modifier.squishable()
+            ) {
+                Text("See all", fontWeight = FontWeight.Bold)
+            }
         }
 
-        val recent = galleryState.items.take(5)
+        Spacer(modifier = Modifier.height(8.dp))
+
+        val recent = galleryState.items.take(3)
         if (recent.isEmpty()) {
-            Text(
-                text = "No recordings yet.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                shape = MaterialTheme.shapes.large
+            ) {
+                Box(
+                    modifier = Modifier.padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Your recording log is empty.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
         } else {
             LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.weight(1f, fill = false),
             ) {
                 items(recent, key = { it.filePath }) { item ->
@@ -233,6 +449,7 @@ fun HomeScreen(
                         onOpen = { onOpenPreview(item.filePath) },
                         onShare = { ShareHelper.shareVideo(context, item.filePath) },
                         onDelete = { galleryViewModel.requestDelete(item.filePath) },
+                        modifier = Modifier.squishable(scaleDown = 0.97f)
                     )
                 }
             }
@@ -242,13 +459,22 @@ fun HomeScreen(
     galleryState.pendingDeletePath?.let { path ->
         AlertDialog(
             onDismissRequest = galleryViewModel::cancelDeleteDialog,
-            title = { Text("Delete recording") },
-            text = { Text("Delete ${path.substringAfterLast('/')}?") },
+            title = { Text("Delete file", fontWeight = FontWeight.Bold) },
+            text = { Text("This will permanently remove ${path.substringAfterLast('/')} from storage.") },
             confirmButton = {
-                TextButton(onClick = galleryViewModel::confirmDelete) { Text("Delete") }
+                TextButton(
+                    onClick = {
+                        scope.launch { haptic.heavyClick() }
+                        galleryViewModel.confirmDelete()
+                    }
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
             },
             dismissButton = {
-                TextButton(onClick = galleryViewModel::cancelDeleteDialog) { Text("Cancel") }
+                TextButton(onClick = galleryViewModel::cancelDeleteDialog) {
+                    Text("Cancel", fontWeight = FontWeight.Bold)
+                }
             },
         )
     }
