@@ -19,15 +19,27 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AudioFile
+import androidx.compose.material.icons.filled.CallSplit
+import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.ControlCamera
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.RadioButtonChecked
+import androidx.compose.material.icons.filled.ScreenRotation
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -192,7 +204,8 @@ fun SettingsScreen(
                 title = "Countdown timer",
                 summary = countdownLabel(settings.countdownSec),
                 enabled = !qualityLocked,
-                onClick = { sheet = SettingsSheet.Countdown }
+                onClick = { sheet = SettingsSheet.Countdown },
+                icon = Icons.Filled.Timer
             )
         }
 
@@ -206,6 +219,7 @@ fun SettingsScreen(
                 summary = "${settings.frameRate} fps",
                 enabled = !qualityLocked,
                 onClick = { sheet = SettingsSheet.FrameRate },
+                icon = Icons.Filled.Speed
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -301,12 +315,14 @@ fun SettingsScreen(
                 summary = resolutionLabel(settings.manualResolutionHeight),
                 enabled = !qualityLocked,
                 onClick = { sheet = SettingsSheet.Resolution },
+                icon = Icons.Filled.AspectRatio
             )
             ModernClickRow(
                 title = "Orientation lock",
                 summary = settings.orientationMode.replaceFirstChar { it.uppercase() },
                 enabled = !qualityLocked,
                 onClick = { sheet = SettingsSheet.Orientation },
+                icon = Icons.Filled.ScreenRotation
             )
         }
 
@@ -322,7 +338,8 @@ fun SettingsScreen(
                 onCheckedChange = {
                     scope.launch { haptic.doubleClick() }
                     viewModel.setAudioEnabled(it)
-                }
+                },
+                icon = Icons.Filled.Mic
             )
 
             if (settings.audioEnabled) {
@@ -455,6 +472,7 @@ fun SettingsScreen(
                     summary = "${settings.audioBitrate / 1000} Kbps",
                     enabled = !qualityLocked,
                     onClick = { sheet = SettingsSheet.AudioBitrate },
+                    icon = Icons.Filled.Hearing
                 )
             }
         }
@@ -471,7 +489,9 @@ fun SettingsScreen(
                 onCheckedChange = {
                     scope.launch { haptic.doubleClick() }
                     viewModel.setShowOverlay(it)
-                }
+                },
+                icon = Icons.Filled.Layers,
+                supportingText = if (!canOverlay) "Requires overlay permission" else null
             )
             if (!canOverlay) {
                 ModernClickRow(
@@ -483,10 +503,10 @@ fun SettingsScreen(
                             FloatingOverlayManager.createOverlaySettingsIntent(context),
                         )
                     },
+                    icon = Icons.Filled.Layers
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
             ModernSwitchRow(
                 title = "Show physical touches",
                 checked = settings.showTouches,
@@ -494,15 +514,17 @@ fun SettingsScreen(
                 onCheckedChange = {
                     scope.launch { haptic.doubleClick() }
                     viewModel.setShowTouches(it)
-                }
+                },
+                icon = Icons.Filled.RadioButtonChecked,
+                supportingText = if (!capabilities.supportsShowTouches) "Requires privileged system capability" else null
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
             ModernClickRow(
                 title = "Maximum segment size",
                 summary = if (settings.maxFileSizeMb == 0) "Unlimited" else "${settings.maxFileSizeMb} MB",
                 enabled = !qualityLocked,
                 onClick = { sheet = SettingsSheet.MaxFileSize },
+                icon = Icons.Filled.CallSplit
             )
             ModernClickRow(
                 title = "Output file prefix",
@@ -512,6 +534,7 @@ fun SettingsScreen(
                     prefixDraft = settings.filePrefix
                     showPrefixDialog = true
                 },
+                icon = Icons.Filled.Edit
             )
         }
 
@@ -579,7 +602,8 @@ fun SettingsScreen(
                 onCheckedChange = {
                     scope.launch { haptic.doubleClick() }
                     viewModel.setDynamicColorEnabled(it)
-                }
+                },
+                icon = Icons.Filled.ColorLens
             )
         }
 
@@ -592,7 +616,8 @@ fun SettingsScreen(
                 title = "Privacy policy",
                 summary = "All audio and video are processed locally on-device.",
                 enabled = true,
-                onClick = { showPrivacyDialog = true }
+                onClick = { showPrivacyDialog = true },
+                icon = Icons.Filled.Info
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(
@@ -824,14 +849,17 @@ private fun ModernClickRow(
     summary: String,
     enabled: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null
 ) {
     val haptic = rememberHapticFeedbackHelper()
     val scope = rememberCoroutineScope()
 
-    Row(
-        modifier = Modifier
+    Surface(
+        modifier = modifier
             .fillMaxWidth()
-            .clip(MaterialTheme.shapes.large)
+            .padding(vertical = 6.dp)
+            .clip(RoundedCornerShape(16.dp))
             .then(
                 if (enabled) {
                     Modifier
@@ -841,39 +869,61 @@ private fun ModernClickRow(
                             onClick()
                         }
                 } else Modifier
-            )
-            .padding(vertical = 12.dp, horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+            ),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                color = if (enabled) {
-                    MaterialTheme.colorScheme.onSurface
-                } else {
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (icon != null) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
                 }
-            )
-            Text(
-                summary,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (enabled) {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                Column {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = if (enabled) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        }
+                    )
+                    Text(
+                        text = summary,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (enabled) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        },
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
                 }
-            )
-        }
-        if (enabled) {
-            Icon(
-                imageVector = Icons.Default.ArrowDropDown,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
-            )
+            }
+            if (enabled) {
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
         }
     }
 }
@@ -884,29 +934,107 @@ private fun ModernSwitchRow(
     checked: Boolean,
     enabled: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    supportingText: String? = null,
+    icon: ImageVector? = null
 ) {
-    Row(
-        modifier = Modifier
+    val haptic = rememberHapticFeedbackHelper()
+    val scope = rememberCoroutineScope()
+
+    Surface(
+        modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp, horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(vertical = 6.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .then(
+                if (enabled) {
+                    Modifier.clickable {
+                        scope.launch { haptic.doubleClick() }
+                        onCheckedChange(!checked)
+                    }
+                } else Modifier
+            ),
+        color = if (checked && enabled) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+        },
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Text(
-            title,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Medium,
-            color = if (enabled) {
-                MaterialTheme.colorScheme.onSurface
-            } else {
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (icon != null) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = if (checked && enabled) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                }
+                Column {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = if (enabled) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        }
+                    )
+                    if (supportingText != null) {
+                        Text(
+                            text = supportingText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (enabled) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            },
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                }
             }
-        )
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            enabled = enabled,
-        )
+            Spacer(modifier = Modifier.width(16.dp))
+            Switch(
+                checked = checked,
+                onCheckedChange = {
+                    scope.launch { haptic.doubleClick() }
+                    onCheckedChange(it)
+                },
+                enabled = enabled,
+                thumbContent = {
+                    if (checked) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            )
+        }
     }
 }
 
