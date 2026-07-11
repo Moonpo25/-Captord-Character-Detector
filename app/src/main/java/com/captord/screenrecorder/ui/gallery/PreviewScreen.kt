@@ -277,7 +277,7 @@ fun PreviewScreen(
                                 scope.launch { haptic.click() }
                                 if (player.isPlaying) player.pause() else player.play()
                             },
-                        shape = CircleShape,
+                        shape = RoundedCornerShape(22.dp),
                         color = playBg,
                         border = androidx.compose.foundation.BorderStroke(
                             2.dp,

@@ -9,6 +9,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -41,13 +42,19 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -135,6 +142,24 @@ fun HomeScreen(
         ),
         label = "scale"
     )
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(8000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "rotation"
+    )
+    val blinkAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "blink"
+    )
 
     Column(
         modifier = modifier
@@ -161,16 +186,17 @@ fun HomeScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 32.dp, horizontal = 24.dp),
+                    .padding(vertical = 40.dp, horizontal = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Shutter Console Box with Pulse Ring
+                // Shutter Console Box with Pulse Ring & Rotating Camcorder Dashes
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier.size(112.dp)
+                    modifier = Modifier.size(136.dp)
                 ) {
                     if (isRecording) {
+                        // Pulsing outer glow
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -178,6 +204,20 @@ fun HomeScreen(
                                 .alpha(pulseAlpha)
                                 .background(recColor.copy(alpha = 0.4f), CircleShape)
                         )
+                        // Rotating dashed outer border
+                        Canvas(
+                            modifier = Modifier
+                                .size(108.dp)
+                                .graphicsLayer { rotationZ = rotation }
+                        ) {
+                            drawCircle(
+                                color = recColor.copy(alpha = 0.7f),
+                                style = Stroke(
+                                    width = 2.dp.toPx(),
+                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(15f, 15f), 0f)
+                                )
+                            )
+                        }
                     }
 
                     // Tactile camera-styled shutter button
@@ -239,9 +279,9 @@ fun HomeScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(28.dp))
 
-                // Time status pill
+                // Time status pill with Blinking Dot Indicator
                 Surface(
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.surfaceContainerLowest,
@@ -257,6 +297,7 @@ fun HomeScreen(
                         Box(
                             modifier = Modifier
                                 .size(8.dp)
+                                .alpha(if (isRecording) blinkAlpha else 1.0f)
                                 .background(statusColor, CircleShape)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
