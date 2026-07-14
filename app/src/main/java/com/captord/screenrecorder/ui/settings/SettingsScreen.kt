@@ -683,10 +683,12 @@ fun SettingsScreen(
             title = { Text("Privacy Policy", fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    text = "Captord processes all screen capturing and audio streams local-only. " +
-                        "No data is transmitted off your physical device, and no external analytics or trackers are bundled. " +
-                        "All output video files are stored locally in your Movies directory.\n\n" +
-                        "Your screen and audio content belong purely to you.",
+                    text = "Captord processes screen capture and audio locally on this device. " +
+                        "Recordings are not uploaded, and the MVP includes no external analytics or trackers. " +
+                        "Screen capture requires MediaProjection consent; microphone and internal audio require " +
+                        "the applicable Android permissions and source-app support. Overlay access is used only " +
+                        "for optional recording controls. Recordings remain in the selected local folder until " +
+                        "you delete them.\n\nYour screen and audio content belong purely to you.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
