@@ -2,7 +2,9 @@ package com.captord.screenrecorder.core.service
 
 import android.app.Service
 import android.content.Context
+import android.content.BroadcastReceiver
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Binder
 import android.os.Build
@@ -40,6 +42,14 @@ class ScreenRecorderService : Service() {
     private var currentConfig: RecordingConfig? = null
     private var overlayManager: FloatingOverlayManager? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private var screenOffReceiverRegistered = false
+    private val screenOffReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == Intent.ACTION_SCREEN_OFF && engine?.isRecording() == true) {
+                engine?.pause()
+            }
+        }
+    }
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private val _uiState = MutableStateFlow(RecordingUiState())
@@ -138,6 +148,7 @@ class ScreenRecorderService : Service() {
         }
 
         currentConfig = config
+        registerScreenOffReceiver()
         val callbacks = object : EngineCallbacks {
             override fun onStateChanged(state: RecordingSessionState) {
                 mainHandler.post {
@@ -270,6 +281,7 @@ class ScreenRecorderService : Service() {
         } catch (_: Exception) {
         }
         engine = null
+        unregisterScreenOffReceiver()
         removeOverlay()
         releaseWakeLock()
         notificationController.stopNotification()
@@ -294,6 +306,7 @@ class ScreenRecorderService : Service() {
         } catch (_: Exception) {
         }
         engine = null
+        unregisterScreenOffReceiver()
         removeOverlay()
         releaseWakeLock()
         notificationController.stopNotification()
@@ -322,6 +335,26 @@ class ScreenRecorderService : Service() {
         }
     }
 
+    private fun registerScreenOffReceiver() {
+        if (screenOffReceiverRegistered) return
+        ContextCompat.registerReceiver(
+            this,
+            screenOffReceiver,
+            IntentFilter(Intent.ACTION_SCREEN_OFF),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        screenOffReceiverRegistered = true
+    }
+
+    private fun unregisterScreenOffReceiver() {
+        if (!screenOffReceiverRegistered) return
+        try {
+            unregisterReceiver(screenOffReceiver)
+        } catch (_: Exception) {
+        }
+        screenOffReceiverRegistered = false
+    }
+
     private fun releaseWakeLock() {
         try {
             if (wakeLock?.isHeld == true) {
@@ -344,6 +377,7 @@ class ScreenRecorderService : Service() {
     }
 
     override fun onDestroy() {
+        unregisterScreenOffReceiver()
         removeOverlay()
         releaseWakeLock()
         try {
