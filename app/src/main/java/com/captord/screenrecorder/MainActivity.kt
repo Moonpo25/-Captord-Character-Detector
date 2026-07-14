@@ -103,6 +103,27 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+        openPreviewFromIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        openPreviewFromIntent(intent)
+    }
+
+    private fun openPreviewFromIntent(intent: Intent?) {
+        val path = intent?.getStringExtra(EXTRA_PREVIEW_PATH) ?: return
+        intent.removeExtra(EXTRA_PREVIEW_PATH)
+        // Navigation is owned by Compose; the route is opened on the next activity render.
+        lifecycleScope.launch {
+            intent.putExtra(EXTRA_PENDING_PREVIEW_PATH, path)
+        }
+    }
+
+    companion object {
+        const val EXTRA_PREVIEW_PATH = "extra_preview_path"
+        const val EXTRA_PENDING_PREVIEW_PATH = "extra_pending_preview_path"
     }
 
     private fun requestStartRecording() {

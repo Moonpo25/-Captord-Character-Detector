@@ -120,7 +120,7 @@ class RecordingNotificationController(private val service: Service) {
         manager.cancel(NOTIFICATION_ID)
     }
 
-    fun showCompletionNotification() {
+    fun showCompletionNotification(finalPath: String) {
         val completionChannelId = "captord_completion"
         val manager = service.getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(
@@ -135,6 +135,7 @@ class RecordingNotificationController(private val service: Service) {
 
         val openIntent = Intent(service, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(MainActivity.EXTRA_PREVIEW_PATH, finalPath)
         }
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         val pendingIntent = PendingIntent.getActivity(service, 0, openIntent, flags)

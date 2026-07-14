@@ -99,6 +99,7 @@ class ScreenRecorderService : Service() {
     }
 
     private fun handleStart(intent: Intent?) {
+        _uiState.value = RecordingUiState()
         val projectionData = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent?.getParcelableExtra(EXTRA_PROJECTION_DATA, Intent::class.java)
         } else {
@@ -272,8 +273,9 @@ class ScreenRecorderService : Service() {
         removeOverlay()
         releaseWakeLock()
         notificationController.stopNotification()
-        if (showCompletion && !_uiState.value.lastFinalPath.isNullOrBlank()) {
-            notificationController.showCompletionNotification()
+        val finalizedPath = _uiState.value.lastFinalPath
+        if (showCompletion && !finalizedPath.isNullOrBlank()) {
+            notificationController.showCompletionNotification(finalizedPath)
         }
         _uiState.update {
             it.copy(
@@ -295,9 +297,7 @@ class ScreenRecorderService : Service() {
         removeOverlay()
         releaseWakeLock()
         notificationController.stopNotification()
-        if (showCompletion) {
-            notificationController.showCompletionNotification()
-        }
+        // Failed sessions never produce a completion notification.
         requestTileRefresh()
         stopSelf()
     }
