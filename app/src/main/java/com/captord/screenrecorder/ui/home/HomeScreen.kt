@@ -77,6 +77,7 @@ import com.captord.screenrecorder.feature.recorder.RecordingViewModel
 import com.captord.screenrecorder.feature.recorder.model.RecordingSessionState
 import com.captord.screenrecorder.ui.components.squishable
 import com.captord.screenrecorder.ui.theme.CaptordSemanticColors
+import android.provider.Settings
 import kotlinx.coroutines.launch
 
 @Composable
@@ -94,7 +95,13 @@ fun HomeScreen(
     val context = LocalContext.current
     val dark = isSystemInDarkTheme()
     val recColor = if (dark) CaptordSemanticColors.recActiveDark else CaptordSemanticColors.recActiveLight
-    val amusementColor = MaterialTheme.colorScheme.primary
+    val pausedColor = if (dark) CaptordSemanticColors.recPausedDark else CaptordSemanticColors.recPausedLight
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val reduceMotion = Settings.Global.getFloat(
+        context.contentResolver,
+        Settings.Global.ANIMATOR_DURATION_SCALE,
+        1f,
+    ) == 0f
 
     val haptic = rememberHapticFeedbackHelper()
     val scope = rememberCoroutineScope()
@@ -126,7 +133,7 @@ fun HomeScreen(
 
     val statusColor = when (uiState.sessionState) {
         RecordingSessionState.RECORDING -> recColor
-        RecordingSessionState.PAUSED -> amusementColor.copy(alpha = 0.8f)
+        RecordingSessionState.PAUSED -> pausedColor
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
@@ -202,7 +209,7 @@ fun HomeScreen(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier.size(136.dp)
                 ) {
-                    if (isRecording) {
+                    if (isRecording && !reduceMotion) {
                         // Pulsing outer glow (optimized via graphicsLayer to avoid recomposition)
                         Box(
                             modifier = Modifier
@@ -233,8 +240,8 @@ fun HomeScreen(
                     // Tactile camera-styled shutter button
                     val shutterBg = when {
                         isRecording -> recColor
-                        isPaused -> amusementColor.copy(alpha = 0.8f)
-                        else -> amusementColor
+                        isPaused -> pausedColor
+                        else -> primaryColor
                     }
 
                     Surface(
@@ -308,7 +315,7 @@ fun HomeScreen(
                             modifier = Modifier
                                 .size(8.dp)
                                 .graphicsLayer {
-                                    alpha = if (isRecording) blinkAlpha else 1.0f
+                                    alpha = if (isRecording && !reduceMotion) blinkAlpha else 1.0f
                                 }
                                 .background(statusColor, CircleShape)
                         )
@@ -358,7 +365,7 @@ fun HomeScreen(
                                 },
                                 shape = CircleShape,
                                 modifier = Modifier.squishable(),
-                                colors = ButtonDefaults.buttonColors(containerColor = amusementColor)
+                                colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
                             ) {
                                 Text("Start screen capture", fontWeight = FontWeight.Bold)
                             }
