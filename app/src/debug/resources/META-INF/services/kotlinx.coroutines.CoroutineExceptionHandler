@@ -1,0 +1,2 @@
+kotlinx.coroutines.android.AndroidExceptionPreHandler
+kotlinx.coroutines.test.internal.ExceptionCollectorAsService

@@ -1,6 +1,7 @@
 package com.captord.screenrecorder
 
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -16,14 +17,13 @@ class NavigationSmokeTest {
 
     @Test
     fun bottomNav_reachesSettingsAndGallery() {
-        composeRule.onNodeWithText("Settings").performClick()
-        composeRule.onNodeWithText("Settings", substring = false).assertExists()
+        composeRule.onNodeWithContentDescription("Settings").performClick()
+        composeRule.onNodeWithText("Engine").assertExists()
 
-        composeRule.onNodeWithText("Gallery").performClick()
-        // Empty gallery copy or title
-        composeRule.onNodeWithText("Gallery").assertExists()
+        composeRule.onNodeWithContentDescription("Gallery").performClick()
+        composeRule.onNodeWithText("No recordings found. Tap record to start.").assertExists()
 
-        composeRule.onNodeWithText("Home").performClick()
+        composeRule.onNodeWithContentDescription("Home").performClick()
         composeRule.onNodeWithText("Captord").assertExists()
     }
 }

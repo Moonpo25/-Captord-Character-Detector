@@ -30,4 +30,14 @@ class RecordingConfigTest {
         assertEquals("finalize_failed", RecordingErrorCode.FINALIZE_FAILED)
         assertEquals("audio_unavailable", RecordingErrorCode.AUDIO_UNAVAILABLE)
     }
+
+    @Test
+    fun customSaveUri_isKeptInValidConfig() {
+        val uri = "content://com.android.externalstorage.documents/tree/primary%3AMovies%2FLolok"
+
+        val config = RecordingConfig(customSaveUri = uri)
+
+        assertTrue(config.validate() is RecordingConfig.ValidationResult.Valid)
+        assertEquals(uri, config.customSaveUri)
+    }
 }

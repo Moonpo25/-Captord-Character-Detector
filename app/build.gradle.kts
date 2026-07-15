@@ -55,6 +55,11 @@ android {
     buildFeatures {
         compose = true
     }
+    packaging {
+        resources {
+            merges += "META-INF/services/kotlinx.coroutines.CoroutineExceptionHandler"
+        }
+    }
 }
 
 dependencies {
@@ -80,6 +85,9 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.kotlinx.coroutines.android)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+    debugImplementation(libs.kotlinx.coroutines.test)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

@@ -26,4 +26,11 @@ class AppSettingsTest {
     fun countdownOptions_includeCommonValues() {
         assertTrue(AppSettings.COUNTDOWN_OPTIONS.containsAll(listOf(0, 3, 5, 10)))
     }
+
+    @Test
+    fun customSaveUri_mapsToRecordingConfig() {
+        val uri = "content://com.android.externalstorage.documents/tree/primary%3AMovies%2FLolok"
+
+        assertEquals(uri, AppSettings(customSaveUri = uri).toRecordingConfig().customSaveUri)
+    }
 }
