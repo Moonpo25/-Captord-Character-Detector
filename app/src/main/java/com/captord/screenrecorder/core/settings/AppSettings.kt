@@ -42,6 +42,7 @@ data class AppSettings(
         manualResolutionHeight = manualResolutionHeight,
         orientationMode = orientationMode,
         showTouches = showTouches,
+        customSaveUri = customSaveUri,
     )
 
     companion object {

@@ -401,8 +401,15 @@ class StandardRecorderEngine(
         }
         val finalFile = File(finalPath)
         fileSizeBytes = finalFile.length()
-        callbacks.onFileSegmentCreated(finalFile.absolutePath, index, fileSizeBytes)
-        PendingOutputStore.scanMedia(context, finalFile.absolutePath)
+        val publishedPath = PendingOutputStore.moveFinalToCustomFolder(
+            context,
+            finalFile,
+            currentConfig?.customSaveUri,
+        ) ?: return false
+        callbacks.onFileSegmentCreated(publishedPath, index, fileSizeBytes)
+        if (publishedPath == finalFile.absolutePath) {
+            PendingOutputStore.scanMedia(context, publishedPath)
+        }
         Log.i(TAG, "Recording segment finalized: $finalPath ($fileSizeBytes bytes)")
         return true
     }

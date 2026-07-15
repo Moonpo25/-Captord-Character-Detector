@@ -3,6 +3,7 @@ package com.captord.screenrecorder.core.gallery
 import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
+import android.net.Uri
 import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
@@ -19,17 +20,19 @@ object VideoMetadataHelper {
 
     fun extract(context: Context, filePath: String): Metadata? {
         val file = File(filePath)
-        if (!file.isFile) return null
+        val isUri = filePath.startsWith("content:")
+        if (!isUri && !file.isFile) return null
         val retriever = MediaMetadataRetriever()
         return try {
-            retriever.setDataSource(filePath)
+            if (isUri) retriever.setDataSource(context, Uri.parse(filePath))
+            else retriever.setDataSource(filePath)
             val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                 ?.toLongOrNull() ?: 0L
             val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
                 ?.toIntOrNull() ?: 0
             val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
                 ?.toIntOrNull() ?: 0
-            val thumbPath = captureThumbnail(context, retriever, file)
+            val thumbPath = captureThumbnail(context, retriever, filePath)
             Metadata(durationMs = duration, width = width, height = height, thumbnailPath = thumbPath)
         } catch (e: Exception) {
             Log.w(TAG, "Metadata failed for $filePath", e)
@@ -45,14 +48,14 @@ object VideoMetadataHelper {
     private fun captureThumbnail(
         context: Context,
         retriever: MediaMetadataRetriever,
-        source: File,
+        source: String,
     ): String? {
         return try {
             val frame = retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
                 ?: return null
             val dir = File(context.cacheDir, "thumbnails")
             if (!dir.exists()) dir.mkdirs()
-            val outFile = File(dir, "${GalleryRepository.pathId(source.absolutePath)}_${source.lastModified()}.jpg")
+            val outFile = File(dir, "${GalleryRepository.pathId(source)}.jpg")
             if (!outFile.exists()) {
                 FileOutputStream(outFile).use { fos ->
                     frame.compress(Bitmap.CompressFormat.JPEG, 80, fos)

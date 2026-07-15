@@ -97,7 +97,11 @@ fun PreviewScreen(
 
     val player = remember {
         ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(Uri.fromFile(File(path))))
+            setMediaItem(
+                MediaItem.fromUri(
+                    if (path.startsWith("content:")) Uri.parse(path) else Uri.fromFile(File(path)),
+                ),
+            )
             prepare()
             playWhenReady = true
         }
@@ -339,7 +343,8 @@ fun PreviewScreen(
     }
 
     LaunchedEffect(uiState.items, uiState.message) {
-        val gone = uiState.items.none { it.filePath == path } && !File(path).exists()
+            val gone = uiState.items.none { it.filePath == path } &&
+                !path.startsWith("content:") && !File(path).exists()
         if (gone || (uiState.message == "Recording deleted" && uiState.items.none { it.filePath == path })) {
             onBack()
         }

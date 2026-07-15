@@ -1,7 +1,9 @@
 package com.captord.screenrecorder.ui.settings
 
-import android.os.Build
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.DocumentsContract
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -480,7 +482,7 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        settings.customSaveUri ?: AppSettings.SAVE_LOCATION_DISPLAY,
+                        savePathLabel(settings.customSaveUri),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1046,6 +1048,15 @@ private fun countdownLabel(sec: Int): String = if (sec == 0) "Off" else "$sec se
 private fun resolutionLabel(height: Int): String = when (height) {
     0 -> "Auto adaptive"
     else -> "${height}p"
+}
+
+private fun savePathLabel(treeUri: String?): String {
+    if (treeUri == null) return AppSettings.SAVE_LOCATION_DISPLAY
+    return runCatching {
+        DocumentsContract.getTreeDocumentId(Uri.parse(treeUri))
+            .substringAfter(':')
+            .ifBlank { "Selected folder" }
+    }.getOrDefault("Selected folder")
 }
 
 private enum class SettingsSheet(val title: String) {

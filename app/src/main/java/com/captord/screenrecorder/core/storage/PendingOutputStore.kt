@@ -2,6 +2,9 @@ package com.captord.screenrecorder.core.storage
 
 import android.content.Context
 import android.media.MediaScannerConnection
+import android.net.Uri
+import android.provider.DocumentsContract
+import android.util.Log
 import android.os.Environment
 import java.io.File
 import java.text.SimpleDateFormat
@@ -9,6 +12,7 @@ import java.util.Date
 import java.util.Locale
 
 object PendingOutputStore {
+    private const val TAG = "PendingOutputStore"
     private const val PENDING_DIR_NAME = ".pending"
     private const val CAPTORD_DIR_NAME = "Captord"
 
@@ -67,5 +71,40 @@ object PendingOutputStore {
 
     fun scanMedia(context: Context, path: String) {
         MediaScannerConnection.scanFile(context, arrayOf(path), null, null)
+    }
+
+    fun moveFinalToCustomFolder(context: Context, finalFile: File, treeUri: String?): String? {
+        if (treeUri.isNullOrBlank()) return finalFile.absolutePath
+        val tree = Uri.parse(treeUri)
+        return try {
+            val documentId = DocumentsContract.getTreeDocumentId(tree)
+            val parent = DocumentsContract.buildDocumentUriUsingTree(tree, documentId)
+            val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, documentId)
+            val existing = context.contentResolver.query(
+                children,
+                arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID),
+                "${DocumentsContract.Document.COLUMN_DISPLAY_NAME} = ?",
+                arrayOf(finalFile.name),
+                null,
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    DocumentsContract.buildDocumentUriUsingTree(tree, cursor.getString(0))
+                } else null
+            }
+            val target = existing ?: DocumentsContract.createDocument(
+                context.contentResolver,
+                parent,
+                "video/mp4",
+                finalFile.name,
+            ) ?: return null
+            context.contentResolver.openOutputStream(target, "w")?.use { output ->
+                finalFile.inputStream().use { input -> input.copyTo(output) }
+            } ?: return null
+            if (!finalFile.delete()) return null
+            target.toString()
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not publish recording to the selected folder", e)
+            null
+        }
     }
 }

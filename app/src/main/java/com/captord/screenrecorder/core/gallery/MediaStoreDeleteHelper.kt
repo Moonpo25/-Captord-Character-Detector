@@ -25,6 +25,17 @@ sealed class DeleteOutcome {
 class MediaStoreDeleteHelper(private val context: Context) {
 
     fun tryDelete(filePath: String): DeleteOutcome {
+        if (filePath.startsWith("content:")) {
+            return try {
+                if (context.contentResolver.delete(Uri.parse(filePath), null, null) > 0) {
+                    DeleteOutcome.Deleted
+                } else {
+                    DeleteOutcome.Failed
+                }
+            } catch (_: Exception) {
+                DeleteOutcome.Failed
+            }
+        }
         val uri = queryMediaStoreUri(filePath)
         if (uri != null) {
             return try {

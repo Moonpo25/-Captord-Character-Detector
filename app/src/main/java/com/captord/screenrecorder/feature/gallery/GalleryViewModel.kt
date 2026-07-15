@@ -13,6 +13,7 @@ import com.captord.screenrecorder.core.gallery.VideoMetadataHelper
 import com.captord.screenrecorder.feature.recorder.RecordingRepository
 import com.captord.screenrecorder.feature.recorder.model.RecordingEvent
 import com.captord.screenrecorder.feature.recorder.model.RecordingSessionState
+import com.captord.screenrecorder.core.settings.SettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,7 +35,8 @@ data class GalleryUiState(
 
 class GalleryViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository = GalleryRepository()
+    private val repository = GalleryRepository(application)
+    private val settingsRepository = SettingsRepository.get(application)
     private val deleteHelper = MediaStoreDeleteHelper(application)
     private val recordingRepository = RecordingRepository.get(application)
 
@@ -52,6 +54,12 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
 
     init {
         refresh()
+        viewModelScope.launch {
+            settingsRepository.settings.collect { settings ->
+                repository.setCustomSaveUri(settings.customSaveUri)
+                refresh()
+            }
+        }
         viewModelScope.launch {
             recordingRepository.events.collect { event ->
                 when (event) {
