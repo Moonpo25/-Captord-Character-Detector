@@ -22,6 +22,7 @@ data class AppSettings(
     val showTouches: Boolean = false,
     val themeMode: String = THEME_SYSTEM,
     val dynamicColorEnabled: Boolean = true,
+    val customSaveUri: String? = null,
 ) {
     fun toRecordingConfig(): RecordingConfig = RecordingConfig(
         engineType = engineType,

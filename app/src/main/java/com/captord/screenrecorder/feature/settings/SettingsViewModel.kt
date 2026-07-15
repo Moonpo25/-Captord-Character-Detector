@@ -87,6 +87,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setDynamicColorEnabled(value: Boolean) = launchUpdate {
         settingsRepository.setDynamicColorEnabled(value)
     }
+    fun setCustomSaveUri(value: String?) = launchUpdate { settingsRepository.setCustomSaveUri(value) }
 
     private fun launchUpdate(block: suspend () -> Unit) {
         viewModelScope.launch { block() }

@@ -1,6 +1,7 @@
 package com.captord.screenrecorder.ui.settings
 
 import android.os.Build
+import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -64,6 +65,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -95,6 +98,16 @@ fun SettingsScreen(
     val qualityLocked by viewModel.qualityLocked.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val canOverlay = FloatingOverlayManager.canDrawOverlays(context)
+    val folderPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        context.contentResolver.takePersistableUriPermission(
+            uri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+        )
+        viewModel.setCustomSaveUri(uri.toString())
+    }
 
     val haptic = rememberHapticFeedbackHelper()
     val scope = rememberCoroutineScope()
@@ -467,12 +480,19 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        AppSettings.SAVE_LOCATION_DISPLAY,
+                        settings.customSaveUri ?: AppSettings.SAVE_LOCATION_DISPLAY,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
+            ModernClickRow(
+                title = "Choose custom folder",
+                summary = "Uses Android folder access",
+                enabled = !qualityLocked,
+                onClick = { folderPicker.launch(null) },
+                icon = Icons.Filled.Folder,
+            )
         }
 
         // Section 6: Appearance

@@ -23,4 +23,5 @@ object SettingsKeys {
     val showTouches = booleanPreferencesKey("show_touches")
     val themeMode = stringPreferencesKey("theme_mode")
     val dynamicColorEnabled = booleanPreferencesKey("dynamic_color_enabled")
+    val customSaveUri = stringPreferencesKey("custom_save_uri")
 }

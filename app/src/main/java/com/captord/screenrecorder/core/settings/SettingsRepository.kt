@@ -57,6 +57,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     suspend fun setDynamicColorEnabled(value: Boolean) = update {
         it.copy(dynamicColorEnabled = value)
     }
+    suspend fun setCustomSaveUri(value: String?) = update { it.copy(customSaveUri = value) }
 
     companion object {
         @Volatile
@@ -94,6 +95,7 @@ private fun Preferences.toAppSettings(): AppSettings {
         themeMode = this[SettingsKeys.themeMode] ?: defaults.themeMode,
         dynamicColorEnabled = this[SettingsKeys.dynamicColorEnabled]
             ?: defaults.dynamicColorEnabled,
+        customSaveUri = this[SettingsKeys.customSaveUri] ?: defaults.customSaveUri,
     )
 }
 
@@ -116,4 +118,6 @@ private fun MutablePreferences.writeAppSettings(settings: AppSettings) {
     this[SettingsKeys.showTouches] = settings.showTouches
     this[SettingsKeys.themeMode] = settings.themeMode
     this[SettingsKeys.dynamicColorEnabled] = settings.dynamicColorEnabled
+    if (settings.customSaveUri == null) remove(SettingsKeys.customSaveUri)
+    else this[SettingsKeys.customSaveUri] = settings.customSaveUri
 }
