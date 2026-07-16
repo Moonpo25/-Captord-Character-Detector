@@ -46,17 +46,14 @@ fun GalleryScreen(
     onOpenPreview: (String) -> Unit,
     galleryViewModel: GalleryViewModel = viewModel(),
     modifier: Modifier = Modifier,
-    onRequestStart: (() -> Unit)? = null
+    onRequestStart: (() -> Unit)? = null,
+    isActive: Boolean = true,
 ) {
     val uiState by galleryViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     val haptic = rememberHapticFeedbackHelper()
     val scope = rememberCoroutineScope()
-
-    LaunchedEffect(Unit) {
-        galleryViewModel.refresh()
-    }
 
     val listState = rememberLazyListState()
     val isFabExpanded by remember {
@@ -108,8 +105,8 @@ fun GalleryScreen(
                         modifier = Modifier.fillMaxSize()
                     ) {
                         items(uiState.items, key = { it.filePath }) { item ->
-                            LaunchedEffect(item.filePath, item.durationMs) {
-                                galleryViewModel.enrichMetadata(item)
+                            LaunchedEffect(isActive, item.filePath, item.durationMs) {
+                                if (isActive) galleryViewModel.enrichMetadata(item)
                             }
                             GalleryRow(
                                 item = item,

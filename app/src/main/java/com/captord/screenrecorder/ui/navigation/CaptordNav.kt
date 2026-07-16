@@ -98,7 +98,7 @@ private fun MainContainerScreen(
     Box(modifier = modifier.fillMaxSize()) {
         HorizontalPager(
             state = pagerState,
-            beyondViewportPageCount = 1,
+            beyondViewportPageCount = 0,
             modifier = Modifier.fillMaxSize()
         ) { page ->
             when (page) {
@@ -116,7 +116,8 @@ private fun MainContainerScreen(
                 1 -> GalleryScreen(
                     onOpenPreview = onOpenPreview,
                     galleryViewModel = galleryViewModel,
-                    onRequestStart = onRequestStartRecording
+                    onRequestStart = onRequestStartRecording,
+                    isActive = pagerState.settledPage == 1,
                 )
                 2 -> SettingsScreen()
             }

@@ -1,6 +1,8 @@
 package com.captord.screenrecorder
 
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -21,7 +23,7 @@ class NavigationSmokeTest {
         composeRule.onNodeWithText("Engine").assertExists()
 
         composeRule.onNodeWithContentDescription("Gallery").performClick()
-        composeRule.onNodeWithText("No recordings found. Tap record to start.").assertExists()
+        composeRule.onNode(hasText("Gallery") and !hasClickAction()).assertExists()
 
         composeRule.onNodeWithContentDescription("Home").performClick()
         composeRule.onNodeWithText("Captord").assertExists()

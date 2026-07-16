@@ -32,7 +32,7 @@ object VideoMetadataHelper {
                 ?.toIntOrNull() ?: 0
             val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
                 ?.toIntOrNull() ?: 0
-            val thumbPath = captureThumbnail(context, retriever, filePath)
+            val thumbPath = captureThumbnail(context, retriever, filePath, width, height)
             Metadata(durationMs = duration, width = width, height = height, thumbnailPath = thumbPath)
         } catch (e: Exception) {
             Log.w(TAG, "Metadata failed for $filePath", e)
@@ -49,19 +49,29 @@ object VideoMetadataHelper {
         context: Context,
         retriever: MediaMetadataRetriever,
         source: String,
+        width: Int,
+        height: Int,
     ): String? {
         return try {
-            val frame = retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-                ?: return null
             val dir = File(context.cacheDir, "thumbnails")
             if (!dir.exists()) dir.mkdirs()
             val outFile = File(dir, "${GalleryRepository.pathId(source)}.jpg")
-            if (!outFile.exists()) {
+            if (outFile.exists()) return outFile.absolutePath
+
+            val scale = (320f / maxOf(width, height).coerceAtLeast(1)).coerceAtMost(1f)
+            val frame = retriever.getScaledFrameAtTime(
+                0,
+                MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
+                (width * scale).toInt().coerceAtLeast(1),
+                (height * scale).toInt().coerceAtLeast(1),
+            ) ?: return null
+            try {
                 FileOutputStream(outFile).use { fos ->
                     frame.compress(Bitmap.CompressFormat.JPEG, 80, fos)
                 }
+            } finally {
+                if (!frame.isRecycled) frame.recycle()
             }
-            if (!frame.isRecycled) frame.recycle()
             outFile.absolutePath
         } catch (e: Exception) {
             Log.w(TAG, "Thumbnail failed", e)

@@ -106,12 +106,6 @@ fun HomeScreen(
     val haptic = rememberHapticFeedbackHelper()
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(uiState.sessionState, uiState.lastFinalPath) {
-        if (uiState.sessionState == RecordingSessionState.IDLE) {
-            galleryViewModel.refresh()
-        }
-    }
-
     LaunchedEffect(countdownRemaining) {
         if (countdownRemaining > 0) {
             haptic.performHaptic(HapticFeedbackHelper.HapticIntensity.TEXTURE_TICK)

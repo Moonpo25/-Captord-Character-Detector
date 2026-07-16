@@ -1,5 +1,6 @@
 package com.captord.screenrecorder.ui.gallery
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -21,14 +22,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -36,7 +40,9 @@ import com.captord.screenrecorder.core.gallery.RecordingItem
 import com.captord.screenrecorder.core.haptics.HapticFeedbackHelper
 import com.captord.screenrecorder.core.haptics.rememberHapticFeedbackHelper
 import com.captord.screenrecorder.ui.components.squishable
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.DateFormat
 import java.util.Date
@@ -52,11 +58,19 @@ fun GalleryRow(
     val haptic = rememberHapticFeedbackHelper()
     val scope = rememberCoroutineScope()
 
-    val thumbBitmap = remember(item.thumbnailPath) {
-        item.thumbnailPath
-            ?.takeIf { File(it).exists() }
-            ?.let { BitmapFactory.decodeFile(it)?.asImageBitmap() }
+    val thumbnailSizePx = with(LocalDensity.current) { 60.dp.roundToPx() }
+    val thumbBitmap by produceState<Bitmap?>(null, item.thumbnailPath, thumbnailSizePx) {
+        value = withContext(Dispatchers.IO) {
+            item.thumbnailPath?.let { decodeThumbnail(it, thumbnailSizePx) }
+        }
     }
+    val bitmap = thumbBitmap
+    DisposableEffect(bitmap) {
+        onDispose {
+            bitmap?.recycle()
+        }
+    }
+    val thumbImage = remember(bitmap) { bitmap?.asImageBitmap() }
 
     Surface(
         modifier = modifier
@@ -83,9 +97,9 @@ fun GalleryRow(
                     .clip(RoundedCornerShape(12.dp)),
                 color = MaterialTheme.colorScheme.surfaceVariant,
             ) {
-                if (thumbBitmap != null) {
+                if (thumbImage != null) {
                     Image(
-                        bitmap = thumbBitmap,
+                        bitmap = thumbImage,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.size(60.dp),
@@ -157,6 +171,23 @@ fun GalleryRow(
             }
         }
     }
+}
+
+private fun decodeThumbnail(path: String, targetSizePx: Int): Bitmap? {
+    if (!File(path).isFile) return null
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(path, bounds)
+    var sampleSize = 1
+    while (
+        bounds.outWidth / sampleSize > targetSizePx * 2 ||
+        bounds.outHeight / sampleSize > targetSizePx * 2
+    ) {
+        sampleSize *= 2
+    }
+    return BitmapFactory.decodeFile(
+        path,
+        BitmapFactory.Options().apply { inSampleSize = sampleSize },
+    )
 }
 
 internal fun formatDuration(durationMs: Long?): String {

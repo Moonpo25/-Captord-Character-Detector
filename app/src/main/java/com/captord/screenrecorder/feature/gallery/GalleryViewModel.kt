@@ -10,20 +10,22 @@ import com.captord.screenrecorder.core.gallery.GalleryRepository
 import com.captord.screenrecorder.core.gallery.MediaStoreDeleteHelper
 import com.captord.screenrecorder.core.gallery.RecordingItem
 import com.captord.screenrecorder.core.gallery.VideoMetadataHelper
+import com.captord.screenrecorder.core.settings.SettingsRepository
 import com.captord.screenrecorder.feature.recorder.RecordingRepository
 import com.captord.screenrecorder.feature.recorder.model.RecordingEvent
-import com.captord.screenrecorder.feature.recorder.model.RecordingSessionState
-import com.captord.screenrecorder.core.settings.SettingsRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 
 data class GalleryUiState(
@@ -50,23 +52,25 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
 
     private var pendingConfirmUri: Uri? = null
     private var pendingConfirmPath: String? = null
+    private var refreshJob: Job? = null
+    private val enrichingPaths = mutableSetOf<String>()
+    private val metadataPermits = Semaphore(2)
     var onNeedDeleteConfirmation: ((IntentSender) -> Unit)? = null
 
     init {
-        refresh()
         viewModelScope.launch {
-            settingsRepository.settings.collect { settings ->
-                repository.setCustomSaveUri(settings.customSaveUri)
-                refresh()
-            }
+            settingsRepository.settings
+                .map { it.customSaveUri }
+                .distinctUntilChanged()
+                .collect { customSaveUri ->
+                    repository.setCustomSaveUri(customSaveUri)
+                    refresh()
+                }
         }
         viewModelScope.launch {
             recordingRepository.events.collect { event ->
                 when (event) {
                     is RecordingEvent.FileSegmentCreated -> refresh()
-                    is RecordingEvent.StateChanged -> {
-                        if (event.state == RecordingSessionState.IDLE) refresh()
-                    }
                     else -> Unit
                 }
             }
@@ -74,32 +78,65 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun refresh() {
-        viewModelScope.launch {
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, message = null) }
-            val items = withContext(Dispatchers.IO) { repository.listRecordings() }
+            val scanned = withContext(Dispatchers.IO) { repository.listRecordings() }
+            val previous = _uiState.value.items.associateBy { it.filePath }
+            val items = scanned.map { item ->
+                val known = previous[item.filePath]
+                    ?.takeIf {
+                        it.fileSizeBytes == item.fileSizeBytes &&
+                            it.modifiedAtMs == item.modifiedAtMs
+                    }
+                if (known == null) item else item.copy(
+                    durationMs = known.durationMs,
+                    width = known.width,
+                    height = known.height,
+                    thumbnailPath = known.thumbnailPath,
+                )
+            }
             _uiState.update { it.copy(items = items, isLoading = false) }
         }
     }
 
     fun enrichMetadata(item: RecordingItem) {
-        if (item.durationMs != null) return
+        if (
+            item.durationMs != null ||
+            !synchronized(enrichingPaths) { enrichingPaths.add(item.filePath) }
+        ) {
+            return
+        }
         viewModelScope.launch(Dispatchers.IO) {
-            val meta = VideoMetadataHelper.extract(getApplication(), item.filePath) ?: return@launch
-            _uiState.update { state ->
-                state.copy(
-                    items = state.items.map { current ->
-                        if (current.filePath == item.filePath) {
-                            current.copy(
-                                durationMs = meta.durationMs,
-                                width = meta.width,
-                                height = meta.height,
-                                thumbnailPath = meta.thumbnailPath,
-                            )
-                        } else {
-                            current
-                        }
-                    },
-                )
+            try {
+                metadataPermits.withPermit {
+                    val meta = VideoMetadataHelper.extract(getApplication(), item.filePath)
+                        ?: return@withPermit
+                    _uiState.update { state ->
+                        state.copy(
+                            items = state.items.map { current ->
+                                if (
+                                    current.filePath == item.filePath &&
+                                    current.fileSizeBytes == item.fileSizeBytes &&
+                                    current.modifiedAtMs == item.modifiedAtMs
+                                ) {
+                                    current.copy(
+                                        durationMs = meta.durationMs,
+                                        width = meta.width,
+                                        height = meta.height,
+                                        thumbnailPath = meta.thumbnailPath,
+                                    )
+                                } else {
+                                    current
+                                }
+                            },
+                        )
+                    }
+                }
+            } finally {
+                synchronized(enrichingPaths) {
+                    enrichingPaths.remove(item.filePath)
+                }
             }
         }
     }
