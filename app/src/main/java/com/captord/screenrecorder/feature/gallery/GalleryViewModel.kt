@@ -78,11 +78,10 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
             _uiState.update { it.copy(isLoading = true, message = null) }
             val items = withContext(Dispatchers.IO) { repository.listRecordings() }
             _uiState.update { it.copy(items = items, isLoading = false) }
-            items.forEach { enrichMetadata(it) }
         }
     }
 
-    private fun enrichMetadata(item: RecordingItem) {
+    fun enrichMetadata(item: RecordingItem) {
         if (item.durationMs != null) return
         viewModelScope.launch(Dispatchers.IO) {
             val meta = VideoMetadataHelper.extract(getApplication(), item.filePath) ?: return@launch

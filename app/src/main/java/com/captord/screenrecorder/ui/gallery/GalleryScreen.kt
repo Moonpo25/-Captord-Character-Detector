@@ -108,6 +108,9 @@ fun GalleryScreen(
                         modifier = Modifier.fillMaxSize()
                     ) {
                         items(uiState.items, key = { it.filePath }) { item ->
+                            LaunchedEffect(item.filePath, item.durationMs) {
+                                galleryViewModel.enrichMetadata(item)
+                            }
                             GalleryRow(
                                 item = item,
                                 onOpen = { onOpenPreview(item.filePath) },
