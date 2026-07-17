@@ -64,32 +64,44 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         launchUpdate { settingsRepository.setShowOverlay(value) }
     }
 
-    fun setEngineType(value: Int) = launchUpdate { settingsRepository.setEngineType(value) }
-    fun setFrameRate(value: Int) = launchUpdate { settingsRepository.setFrameRate(value) }
-    fun setVideoBitrate(value: Int) = launchUpdate { settingsRepository.setVideoBitrate(value) }
-    fun setVideoCodec(value: String) = launchUpdate { settingsRepository.setVideoCodec(value) }
-    fun setAudioEnabled(value: Boolean) = launchUpdate { settingsRepository.setAudioEnabled(value) }
-    fun setAudioSource(value: String) = launchUpdate { settingsRepository.setAudioSource(value) }
-    fun setAudioBitrate(value: Int) = launchUpdate { settingsRepository.setAudioBitrate(value) }
-    fun setSampleRate(value: Int) = launchUpdate { settingsRepository.setSampleRate(value) }
-    fun setAudioChannel(value: Int) = launchUpdate { settingsRepository.setAudioChannel(value) }
-    fun setCountdownSec(value: Int) = launchUpdate { settingsRepository.setCountdownSec(value) }
-    fun setMaxFileSizeMb(value: Int) = launchUpdate { settingsRepository.setMaxFileSizeMb(value) }
-    fun setFilePrefix(value: String) = launchUpdate { settingsRepository.setFilePrefix(value) }
-    fun setManualResolutionHeight(value: Int) = launchUpdate {
+    fun setEngineType(value: Int) = launchQualityUpdate { settingsRepository.setEngineType(value) }
+    fun setFrameRate(value: Int) = launchQualityUpdate { settingsRepository.setFrameRate(value) }
+    fun setVideoBitrate(value: Int) = launchQualityUpdate { settingsRepository.setVideoBitrate(value) }
+    fun setVideoCodec(value: String) = launchQualityUpdate { settingsRepository.setVideoCodec(value) }
+    fun setAudioEnabled(value: Boolean) = launchQualityUpdate { settingsRepository.setAudioEnabled(value) }
+    fun setAudioSource(value: String) = launchQualityUpdate { settingsRepository.setAudioSource(value) }
+    fun setAudioBitrate(value: Int) = launchQualityUpdate { settingsRepository.setAudioBitrate(value) }
+    fun setSampleRate(value: Int) = launchQualityUpdate { settingsRepository.setSampleRate(value) }
+    fun setAudioChannel(value: Int) = launchQualityUpdate { settingsRepository.setAudioChannel(value) }
+    fun setCountdownSec(value: Int) = launchQualityUpdate { settingsRepository.setCountdownSec(value) }
+    fun setMaxFileSizeMb(value: Int) = launchQualityUpdate { settingsRepository.setMaxFileSizeMb(value) }
+    fun setFilePrefix(value: String) = launchQualityUpdate { settingsRepository.setFilePrefix(value) }
+    fun setManualResolutionHeight(value: Int) = launchQualityUpdate {
         settingsRepository.setManualResolutionHeight(value)
     }
-    fun setOrientationMode(value: String) = launchUpdate {
+    fun setOrientationMode(value: String) = launchQualityUpdate {
         settingsRepository.setOrientationMode(value)
     }
-    fun setShowTouches(value: Boolean) = launchUpdate { settingsRepository.setShowTouches(value) }
+    fun setShowTouches(value: Boolean) = launchQualityUpdate { settingsRepository.setShowTouches(value) }
     fun setThemeMode(value: String) = launchUpdate { settingsRepository.setThemeMode(value) }
     fun setDynamicColorEnabled(value: Boolean) = launchUpdate {
         settingsRepository.setDynamicColorEnabled(value)
     }
-    fun setCustomSaveUri(value: String?) = launchUpdate { settingsRepository.setCustomSaveUri(value) }
+    fun setCustomSaveUri(value: String?) = launchQualityUpdate {
+        settingsRepository.setCustomSaveUri(value)
+    }
+
+    private fun launchQualityUpdate(block: suspend () -> Unit) {
+        viewModelScope.launch {
+            if (!allowQualitySettingsWrite(recordingRepository.uiState.value.isActive)) return@launch
+            block()
+        }
+    }
 
     private fun launchUpdate(block: suspend () -> Unit) {
         viewModelScope.launch { block() }
     }
 }
+
+/** Output-affecting settings must not change while a recording session is active. */
+fun allowQualitySettingsWrite(sessionActive: Boolean): Boolean = !sessionActive
