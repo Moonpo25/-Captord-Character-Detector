@@ -432,17 +432,7 @@ fun SettingsScreen(
                 )
             }
 
-            ModernSwitchRow(
-                title = "Show physical touches",
-                checked = settings.showTouches,
-                enabled = !qualityLocked && capabilities.supportsShowTouches,
-                onCheckedChange = {
-                    scope.launch { haptic.doubleClick() }
-                    viewModel.setShowTouches(it)
-                },
-                icon = Icons.Filled.RadioButtonChecked,
-                supportingText = if (!capabilities.supportsShowTouches) "Requires privileged system capability" else null
-            )
+            // show-touches requires privileged WRITE_SETTINGS; not available for normal apps (MVP: hide)
 
             ModernClickRow(
                 title = "Maximum segment size",
