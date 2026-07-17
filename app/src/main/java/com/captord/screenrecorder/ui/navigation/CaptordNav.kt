@@ -8,6 +8,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -18,9 +19,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.captord.screenrecorder.MainActivity
 import com.captord.screenrecorder.feature.gallery.GalleryViewModel
 import com.captord.screenrecorder.feature.recorder.RecordingViewModel
 import com.captord.screenrecorder.ui.components.FloatingNavToolbar
@@ -45,8 +46,16 @@ fun CaptordNavHost(
     modifier: Modifier = Modifier,
 ) {
     val navController = rememberNavController()
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
+    val pendingPreviewPath by MainActivity.pendingPreviewPath.collectAsStateWithLifecycle()
+
+    LaunchedEffect(pendingPreviewPath) {
+        val path = pendingPreviewPath ?: return@LaunchedEffect
+        MainActivity.clearPendingPreviewPath()
+        val encoded = URLEncoder.encode(path, StandardCharsets.UTF_8.toString())
+        navController.navigate("preview/$encoded") {
+            launchSingleTop = true
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),

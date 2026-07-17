@@ -134,7 +134,7 @@ class RecordingNotificationController(private val service: Service) {
         manager.createNotificationChannel(channel)
 
         val openIntent = Intent(service, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra(MainActivity.EXTRA_PREVIEW_PATH, finalPath)
         }
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE

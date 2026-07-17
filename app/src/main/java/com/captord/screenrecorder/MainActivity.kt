@@ -28,6 +28,9 @@ import com.captord.screenrecorder.feature.recorder.RecordingViewModel
 import com.captord.screenrecorder.feature.settings.SettingsViewModel
 import com.captord.screenrecorder.ui.navigation.CaptordNavHost
 import com.captord.screenrecorder.ui.theme.CaptordTheme
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -113,17 +116,20 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openPreviewFromIntent(intent: Intent?) {
-        val path = intent?.getStringExtra(EXTRA_PREVIEW_PATH) ?: return
+        val path = intent?.getStringExtra(EXTRA_PREVIEW_PATH)?.takeIf { it.isNotBlank() } ?: return
         intent.removeExtra(EXTRA_PREVIEW_PATH)
-        // Navigation is owned by Compose; the route is opened on the next activity render.
-        lifecycleScope.launch {
-            intent.putExtra(EXTRA_PENDING_PREVIEW_PATH, path)
-        }
+        _pendingPreviewPath.value = path
     }
 
     companion object {
         const val EXTRA_PREVIEW_PATH = "extra_preview_path"
-        const val EXTRA_PENDING_PREVIEW_PATH = "extra_pending_preview_path"
+
+        private val _pendingPreviewPath = MutableStateFlow<String?>(null)
+        val pendingPreviewPath: StateFlow<String?> = _pendingPreviewPath.asStateFlow()
+
+        fun clearPendingPreviewPath() {
+            _pendingPreviewPath.value = null
+        }
     }
 
     private fun requestStartRecording() {
