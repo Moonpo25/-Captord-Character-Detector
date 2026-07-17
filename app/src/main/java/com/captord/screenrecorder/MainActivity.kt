@@ -118,7 +118,7 @@ class MainActivity : ComponentActivity() {
     private fun openPreviewFromIntent(intent: Intent?) {
         val path = intent?.getStringExtra(EXTRA_PREVIEW_PATH)?.takeIf { it.isNotBlank() } ?: return
         intent.removeExtra(EXTRA_PREVIEW_PATH)
-        _pendingPreviewPath.value = path
+        offerPendingPreviewPath(path)
     }
 
     companion object {
@@ -126,6 +126,10 @@ class MainActivity : ComponentActivity() {
 
         private val _pendingPreviewPath = MutableStateFlow<String?>(null)
         val pendingPreviewPath: StateFlow<String?> = _pendingPreviewPath.asStateFlow()
+
+        fun offerPendingPreviewPath(path: String) {
+            _pendingPreviewPath.value = path
+        }
 
         fun clearPendingPreviewPath() {
             _pendingPreviewPath.value = null
