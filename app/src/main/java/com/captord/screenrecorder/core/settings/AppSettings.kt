@@ -20,6 +20,7 @@ data class AppSettings(
     val manualResolutionHeight: Int = 0,
     val orientationMode: String = "auto",
     val showTouches: Boolean = false,
+    val hideOverlayFromCapture: Boolean = false,
     val themeMode: String = THEME_SYSTEM,
     val dynamicColorEnabled: Boolean = true,
     val customSaveUri: String? = null,
@@ -42,6 +43,7 @@ data class AppSettings(
         manualResolutionHeight = manualResolutionHeight,
         orientationMode = orientationMode,
         showTouches = showTouches,
+        hideOverlayFromCapture = hideOverlayFromCapture,
         customSaveUri = customSaveUri,
     )
 

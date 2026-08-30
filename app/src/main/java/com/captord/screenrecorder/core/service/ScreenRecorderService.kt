@@ -260,7 +260,7 @@ class ScreenRecorderService : Service() {
         if (!config.showOverlay) return
         if (!Settings.canDrawOverlays(this)) return
         if (overlayManager == null) {
-            overlayManager = FloatingOverlayManager(this)
+            overlayManager = FloatingOverlayManager(this, hideFromCapture = config.hideOverlayFromCapture)
         }
         if (overlayManager?.isShowing != true) {
             overlayManager?.show()

@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.AlertDialog
@@ -417,6 +418,17 @@ fun SettingsScreen(
                 },
                 icon = Icons.Filled.Layers,
                 supportingText = if (!canOverlay) "Requires overlay permission" else null
+            )
+            ModernSwitchRow(
+                title = "Hide overlay from recording",
+                checked = settings.hideOverlayFromCapture,
+                enabled = settings.showOverlay && canOverlay && !qualityLocked,
+                onCheckedChange = {
+                    scope.launch { haptic.doubleClick() }
+                    viewModel.setHideOverlayFromCapture(it)
+                },
+                icon = Icons.Filled.Visibility,
+                supportingText = "Adds FLAG_SECURE; some OEM ROMs may show a black box instead."
             )
             if (!canOverlay) {
                 ModernClickRow(

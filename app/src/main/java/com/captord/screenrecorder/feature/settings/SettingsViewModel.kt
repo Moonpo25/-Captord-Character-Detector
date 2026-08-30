@@ -83,6 +83,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         settingsRepository.setOrientationMode(value)
     }
     fun setShowTouches(value: Boolean) = launchQualityUpdate { settingsRepository.setShowTouches(value) }
+    fun setHideOverlayFromCapture(value: Boolean) = launchUpdate {
+        settingsRepository.setHideOverlayFromCapture(value)
+    }
     fun setThemeMode(value: String) = launchUpdate { settingsRepository.setThemeMode(value) }
     fun setDynamicColorEnabled(value: Boolean) = launchUpdate {
         settingsRepository.setDynamicColorEnabled(value)

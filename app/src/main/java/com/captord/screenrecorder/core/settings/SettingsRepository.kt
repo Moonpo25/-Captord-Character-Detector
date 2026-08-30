@@ -53,6 +53,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     }
     suspend fun setOrientationMode(value: String) = update { it.copy(orientationMode = value) }
     suspend fun setShowTouches(value: Boolean) = update { it.copy(showTouches = value) }
+    suspend fun setHideOverlayFromCapture(value: Boolean) = update {
+        it.copy(hideOverlayFromCapture = value)
+    }
     suspend fun setThemeMode(value: String) = update { it.copy(themeMode = value) }
     suspend fun setDynamicColorEnabled(value: Boolean) = update {
         it.copy(dynamicColorEnabled = value)
@@ -92,6 +95,8 @@ private fun Preferences.toAppSettings(): AppSettings {
             ?: defaults.manualResolutionHeight,
         orientationMode = this[SettingsKeys.orientationMode] ?: defaults.orientationMode,
         showTouches = this[SettingsKeys.showTouches] ?: defaults.showTouches,
+        hideOverlayFromCapture = this[SettingsKeys.hideOverlayFromCapture]
+            ?: defaults.hideOverlayFromCapture,
         themeMode = this[SettingsKeys.themeMode] ?: defaults.themeMode,
         dynamicColorEnabled = this[SettingsKeys.dynamicColorEnabled]
             ?: defaults.dynamicColorEnabled,
@@ -116,6 +121,7 @@ private fun MutablePreferences.writeAppSettings(settings: AppSettings) {
     this[SettingsKeys.manualResolutionHeight] = settings.manualResolutionHeight
     this[SettingsKeys.orientationMode] = settings.orientationMode
     this[SettingsKeys.showTouches] = settings.showTouches
+    this[SettingsKeys.hideOverlayFromCapture] = settings.hideOverlayFromCapture
     this[SettingsKeys.themeMode] = settings.themeMode
     this[SettingsKeys.dynamicColorEnabled] = settings.dynamicColorEnabled
     if (settings.customSaveUri == null) remove(SettingsKeys.customSaveUri)

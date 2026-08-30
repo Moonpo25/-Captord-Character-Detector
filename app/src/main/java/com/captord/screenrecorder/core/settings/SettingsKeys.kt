@@ -21,6 +21,7 @@ object SettingsKeys {
     val manualResolutionHeight = intPreferencesKey("manual_resolution_height")
     val orientationMode = stringPreferencesKey("orientation_mode")
     val showTouches = booleanPreferencesKey("show_touches")
+    val hideOverlayFromCapture = booleanPreferencesKey("hide_overlay_from_capture")
     val themeMode = stringPreferencesKey("theme_mode")
     val dynamicColorEnabled = booleanPreferencesKey("dynamic_color_enabled")
     val customSaveUri = stringPreferencesKey("custom_save_uri")

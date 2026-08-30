@@ -33,7 +33,10 @@ import com.captord.screenrecorder.core.service.ScreenRecorderService
  * falls back to the previous "always visible" behaviour. The overlay still works
  * for input in both modes.
  */
-class FloatingOverlayManager(private val context: Context) {
+class FloatingOverlayManager(
+    private val context: Context,
+    private val hideFromCapture: Boolean = true,
+) {
 
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -123,13 +126,18 @@ class FloatingOverlayManager(private val context: Context) {
             WindowManager.LayoutParams.TYPE_PHONE
         }
 
+        val baseFlags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+        val secureFlag = if (hideFromCapture) {
+            WindowManager.LayoutParams.FLAG_SECURE
+        } else {
+            0
+        }
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_SECURE,
+            baseFlags or secureFlag,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START

@@ -20,6 +20,7 @@ data class RecordingConfig(
     val manualResolutionHeight: Int = 0,
     val orientationMode: String = "auto",
     val showTouches: Boolean = false,
+    val hideOverlayFromCapture: Boolean = false,
     val customSaveUri: String? = null,
 ) : Serializable {
 
