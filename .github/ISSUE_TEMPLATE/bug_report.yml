@@ -1,0 +1,99 @@
+name: Bug report
+description: Something isn't working on your device. Help us reproduce it.
+title: "Bug: <short summary>"
+labels: ["bug"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Please fill in the details below
+        so we can reproduce and fix it. Skip anything that doesn't apply.
+
+  - type: dropdown
+    id: engines
+    attributes:
+      label: Engine
+      description: Which recording engine were you using?
+      options:
+        - "Standard (MediaRecorder)"
+        - "Advanced (MediaCodec + MediaMuxer)"
+        - "Not sure / default"
+    validations:
+      required: false
+
+  - type: input
+    id: device
+    attributes:
+      label: Device
+      description: Phone model and manufacturer (e.g. "Pixel 8", "1+ Nord CE 3 Lite 5G").
+      placeholder: ""
+    validations:
+      required: false
+
+  - type: input
+    id: android-version
+    attributes:
+      label: Android version
+      description: OS version shown in Settings > About (e.g. "Android 16") and ROM if custom (e.g. "crDroid 12.11").
+      placeholder: ""
+    validations:
+      required: false
+
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: Captord version from Settings > Privacy & App Info > Hardware features profile, or the Play Store / release page.
+      placeholder: "1.0.0"
+    validations:
+      required: false
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: What did you do, in order, to make the bug happen?
+      placeholder: |
+        1. Open Captord
+        2. Tap "Start screen capture"
+        3. Approve MediaProjection consent
+        4. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened? Include any on-screen error text verbatim.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logcat (optional)
+      description: |
+        If you can capture logcat, run:
+        `adb logcat -d -s MediaCodec:* AdvancedRecorder:* StandardRecorder:* ScreenRecorderService:*`
+        then paste the relevant slice here. Skip if not convenient.
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / screen recordings
+      description: Attach or link any media that shows the bug.
+    validations:
+      required: false

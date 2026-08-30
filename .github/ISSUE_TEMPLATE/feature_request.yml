@@ -1,0 +1,56 @@
+name: Feature request
+description: Suggest a new behavior or improvement for Captord.
+title: "Feature: <short summary>"
+labels: ["enhancement"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Captord is a privacy-first local screen recorder. Before opening a feature
+        request, please skim the README and the planning docs in `planning-docs-kotlin/`
+        to check that the feature isn't already in scope or out-of-scope by design.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What pain point or limitation does this address?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How should Captord behave after this lands?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches did you consider, and why isn't this one?
+    validations:
+      required: false
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Privacy / local-only impact
+      description: |
+        Captord is local-only and rejects cloud upload / analytics. Does this
+        feature keep that promise? If not, can it be gated behind a permission
+        the user opts into?
+    validations:
+      required: false
+
+  - type: textarea
+    id: effort
+    attributes:
+      label: Willing to help
+      description: Are you open to sending a PR? Any context on devices / Android versions you've tested on?
+    validations:
+      required: false

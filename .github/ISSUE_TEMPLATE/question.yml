@@ -1,0 +1,27 @@
+name: Question
+description: A question about Captord usage, behavior, or plans.
+title: "Question: <short summary>"
+labels: ["question"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for how-to questions or design questions. For "X doesn't work on my
+        device", please file a bug report instead.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Anything you've already tried, links to docs, device info.
+    validations:
+      required: false
