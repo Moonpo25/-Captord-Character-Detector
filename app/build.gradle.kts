@@ -21,10 +21,62 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("/home/drenzzz/upload-keystore.jks")
-            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: (project.findProperty("KEYSTORE_PASSWORD") as String?) ?: ""
-            keyAlias = System.getenv("KEY_ALIAS") ?: (project.findProperty("KEY_ALIAS") as String?) ?: ""
-            keyPassword = System.getenv("KEY_PASSWORD") ?: (project.findProperty("KEY_PASSWORD") as String?) ?: ""
+            // Resolve the keystore path and credentials from environment
+            // variables only. Never hardcode paths in the build script.
+            val keystorePath = System.getenv("KEYSTORE_PATH")
+                ?: (project.findProperty("KEYSTORE_PATH") as String?)
+                ?: ""
+            if (keystorePath.isNotBlank()) {
+                storeFile = file(keystorePath)
+            }
+            val storePassword = System.getenv("KEYSTORE_PASSWORD")
+                ?: (project.findProperty("KEYSTORE_PASSWORD") as String?)
+                ?: ""
+            val keyAlias = System.getenv("KEY_ALIAS")
+                ?: (project.findProperty("KEY_ALIAS") as String?)
+                ?: ""
+            val keyPassword = System.getenv("KEY_PASSWORD")
+                ?: (project.findProperty("KEY_PASSWORD") as String?)
+                ?: ""
+            this.storePassword = storePassword
+            this.keyAlias = keyAlias
+            this.keyPassword = keyPassword
+        }
+    }
+
+    afterEvaluate {
+        // Fail loud at release-task execution time when env vars are
+        // missing. We can't `require()` at config time because Gradle
+        // also evaluates this block when building debug variants.
+        tasks.matching {
+            it.name == "assembleRelease" || it.name == "bundleRelease"
+        }.configureEach {
+            doFirst {
+                val keystorePath = System.getenv("KEYSTORE_PATH")
+                    ?: (project.findProperty("KEYSTORE_PATH") as String?)
+                    ?: ""
+                if (keystorePath.isBlank()) {
+                    throw org.gradle.api.GradleException(
+                        "KEYSTORE_PATH must be set (env var or gradle property) for release builds",
+                    )
+                }
+                val missing = listOf(
+                    "KEYSTORE_PASSWORD" to (System.getenv("KEYSTORE_PASSWORD")
+                        ?: (project.findProperty("KEYSTORE_PASSWORD") as String?)
+                        ?: ""),
+                    "KEY_ALIAS" to (System.getenv("KEY_ALIAS")
+                        ?: (project.findProperty("KEY_ALIAS") as String?)
+                        ?: ""),
+                    "KEY_PASSWORD" to (System.getenv("KEY_PASSWORD")
+                        ?: (project.findProperty("KEY_PASSWORD") as String?)
+                        ?: ""),
+                ).filter { it.second.isBlank() }
+                if (missing.isNotEmpty()) {
+                    throw org.gradle.api.GradleException(
+                        "Missing release signing env vars: ${missing.joinToString { it.first }}",
+                    )
+                }
+            }
         }
     }
 
