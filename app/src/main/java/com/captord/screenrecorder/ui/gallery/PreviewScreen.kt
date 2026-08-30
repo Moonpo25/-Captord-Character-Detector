@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -66,10 +68,12 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.captord.screenrecorder.R
+import com.captord.screenrecorder.core.bookmark.DataStoreBookmarkStore
 import com.captord.screenrecorder.core.gallery.ShareHelper
 import com.captord.screenrecorder.core.haptics.HapticFeedbackHelper
 import com.captord.screenrecorder.core.haptics.rememberHapticFeedbackHelper
 import com.captord.screenrecorder.feature.gallery.GalleryViewModel
+import com.captord.screenrecorder.feature.recorder.model.RecordingBookmark
 import com.captord.screenrecorder.ui.components.squishable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -112,6 +116,7 @@ fun PreviewScreen(
     var positionMs by remember { mutableLongStateOf(0L) }
     var durationMs by remember { mutableLongStateOf(0L) }
     var isPlaying by remember { mutableStateOf(true) }
+    var bookmarks by remember { mutableStateOf<List<RecordingBookmark>>(emptyList()) }
 
     DisposableEffect(player) {
         val listener = object : Player.Listener {
@@ -132,6 +137,23 @@ fun PreviewScreen(
             durationMs = player.duration.coerceAtLeast(0L)
             delay(250)
         }
+    }
+
+    LaunchedEffect(path) {
+        // Look up bookmarks by the same final-path convention the
+        // bookmark button uses while recording. If the path is a content://
+        // URI (custom SAF folder), we fall back to a best-effort match on
+        // display name — the SAF case currently has no stable filename
+        // contract, so this is a best effort.
+        val lookupPath = if (path.startsWith("content:")) {
+            val name = path.substringAfterLast('/')
+            "Movies/Captord/$name"
+        } else {
+            path
+        }
+        bookmarks = runCatching {
+            DataStoreBookmarkStore.instance(context).getBookmarks(lookupPath)
+        }.getOrDefault(emptyList())
     }
 
     Scaffold(
@@ -217,6 +239,41 @@ fun PreviewScreen(
                 }
 
                 Spacer(Modifier.height(28.dp))
+
+                if (bookmarks.isNotEmpty()) {
+                    // Bookmark chips — tap to seek the player to that timestamp.
+                    Text(
+                        text = "Bookmarks",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    androidx.compose.foundation.lazy.                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(bookmarks, key = { it.id }) { bm ->
+                            Surface(
+                                onClick = {
+                                    scope.launch { haptic.click() }
+                                    player.seekTo(bm.timestampMs)
+                                },
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            ) {
+                                Text(
+                                    text = formatDuration(bm.timestampMs),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(20.dp))
+                }
 
                 // Custom seeking slider with haptic ticks
                 if (durationMs > 0) {
