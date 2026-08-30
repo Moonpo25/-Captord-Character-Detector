@@ -44,6 +44,20 @@ object CapabilityChecker {
             .sorted()
             .ifEmpty { listOf(30) }
 
+        // Take the minimum of the per-encoder max bitrate across all video MIME types.
+        // AVC is the floor; if a device only supports HEVC at a lower rate, that still
+        // wins because we also iterate video/hevc. Capping at MAX_VIDEO_BITRATE keeps
+        // us within the documented wide bracket for 1080p+.
+        val probedMaxBps = encoders
+            .flatMap { info ->
+                info.supportedTypes
+                    .filter { it.startsWith("video/", ignoreCase = true) }
+                    .mapNotNull { type -> maxBitrateForType(info, type) }
+            }
+            .minOrNull()
+            ?.coerceAtMost(RecordingConfig.MAX_VIDEO_BITRATE)
+            ?: RecordingConfig.MAX_VIDEO_BITRATE
+
         return CapabilityReport(
             supportsH265 = supportsH265,
             supportedFrameRates = supportedFrameRates,
@@ -53,6 +67,7 @@ object CapabilityChecker {
             androidApi = Build.VERSION.SDK_INT,
             supportsShowTouches = canProbeShowTouches(context),
             supportsDynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
+            maxVideoBitrateBps = probedMaxBps,
         )
     }
 
@@ -89,11 +104,21 @@ object CapabilityChecker {
             else -> config.audioSource
         }
 
+        // Clamp the requested bitrate to the device's hardware-enforced ceiling.
+        // A value above maxVideoBitrateBps would make MediaCodec.configure() throw
+        // IllegalArgumentException on devices with stricter encoders.
+        val videoBitrate = if (capability.maxVideoBitrateBps > 0) {
+            config.videoBitrate.coerceAtMost(capability.maxVideoBitrateBps)
+        } else {
+            config.videoBitrate
+        }
+
         return config.copy(
             engineType = engineType,
             frameRate = frameRate,
             videoCodec = videoCodec,
             audioSource = audioSource,
+            videoBitrate = videoBitrate,
         )
     }
 
@@ -103,6 +128,16 @@ object CapabilityChecker {
             val videoCaps = caps.videoCapabilities ?: return null
             val ranges = videoCaps.supportedFrameRates
             ranges?.upper?.toInt()
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun maxBitrateForType(info: MediaCodecInfo, type: String): Int? {
+        return try {
+            val caps = info.getCapabilitiesForType(type)
+            val videoCaps = caps.videoCapabilities ?: return null
+            videoCaps.bitrateRange.upper.toInt()
         } catch (_: Exception) {
             null
         }

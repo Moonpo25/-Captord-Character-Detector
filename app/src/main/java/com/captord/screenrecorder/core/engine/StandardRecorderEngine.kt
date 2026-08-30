@@ -144,7 +144,7 @@ class StandardRecorderEngine(
             recordingState = RecordingSessionState.ERROR
             callbacks.onError(
                 RecordingErrorCode.ENGINE_ERROR,
-                "Failed to start recording: ${e.message}",
+                CodecErrorFormatter.format(e, "Failed to start recording"),
                 false,
             )
             releaseCaptureResources(stopProjection = true)
@@ -285,7 +285,7 @@ class StandardRecorderEngine(
             Log.e(TAG, "Failed to start new segment", e)
             callbacks.onError(
                 RecordingErrorCode.SPLIT_ERROR,
-                "Failed to start next recording segment: ${e.message}",
+                CodecErrorFormatter.format(e, "Failed to start next recording segment"),
                 false,
             )
             recordingState = RecordingSessionState.ERROR

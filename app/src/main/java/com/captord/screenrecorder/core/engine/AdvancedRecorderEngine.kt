@@ -198,12 +198,23 @@ class AdvancedRecorderEngine(
                 )
 
                 // Phase 1: open AudioRecord and learn negotiated rate/channel (pitch fix).
-                val actual = capture.prepare(
-                    config.audioSource,
-                    preferred.sampleRate,
-                    preferred.channelConfig,
-                    projection,
-                )
+                val actual = try {
+                    capture.prepare(
+                        config.audioSource,
+                        preferred.sampleRate,
+                        preferred.channelConfig,
+                        projection,
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to prepare audio capture", e)
+                    callbacks.onError(
+                        RecordingErrorCode.ENGINE_ERROR,
+                        CodecErrorFormatter.format(e, "Failed to prepare audio capture"),
+                        false,
+                    )
+                    cleanup()
+                    return
+                }
                 if (actual == null) {
                     callbacks.onError(
                         RecordingErrorCode.ENGINE_ERROR,
@@ -233,12 +244,23 @@ class AdvancedRecorderEngine(
                         writeAudioSample(byteBuffer, bufferInfo)
                     },
                 )
-                if (audioEncoder?.start(
+                val aacStarted = try {
+                    audioEncoder?.start(
                         actual.sampleRate,
                         actual.channelCount,
                         config.audioBitrate,
-                    ) != true
-                ) {
+                    ) ?: false
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to start AAC encoder", e)
+                    callbacks.onError(
+                        RecordingErrorCode.ENGINE_ERROR,
+                        CodecErrorFormatter.format(e, "Failed to start AAC encoder"),
+                        false,
+                    )
+                    cleanup()
+                    return
+                }
+                if (!aacStarted) {
                     callbacks.onError(
                         RecordingErrorCode.ENGINE_ERROR,
                         "Failed to start AAC encoder",
@@ -298,7 +320,11 @@ class AdvancedRecorderEngine(
             Log.i(TAG, "Advanced Engine started recording successfully")
         } catch (e: Exception) {
             Log.e(TAG, "Error starting Advanced Engine: ${e.message}", e)
-            callbacks.onError(RecordingErrorCode.ENGINE_ERROR, "Failed to start advanced recording: ${e.message}", false)
+            callbacks.onError(
+                RecordingErrorCode.ENGINE_ERROR,
+                CodecErrorFormatter.format(e, "Failed to start advanced recording"),
+                false,
+            )
             cleanup()
         }
     }
@@ -522,10 +548,14 @@ class AdvancedRecorderEngine(
                     },
                 )
                 return true
-            } catch (e: Exception) {
-                Log.e(TAG, "Error splitting file: ${e.message}", e)
-                callbacks.onError(RecordingErrorCode.SPLIT_ERROR, "Failed to split recording: ${e.message}", false)
-            }
+} catch (e: Exception) {
+            Log.e(TAG, "Error splitting file: ${e.message}", e)
+            callbacks.onError(
+                RecordingErrorCode.SPLIT_ERROR,
+                CodecErrorFormatter.format(e, "Failed to split recording"),
+                false,
+            )
+        }
         }
         return false
     }

@@ -11,6 +11,13 @@ data class CapabilityReport(
     val androidApi: Int,
     val supportsShowTouches: Boolean,
     val supportsDynamicColor: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
+    /**
+     * Maximum video bitrate the device's hardware encoder actually accepts, in bps.
+     * Populated by [com.captord.screenrecorder.core.capability.CapabilityChecker.probe];
+     * [Int.MAX_VALUE] means "not probed / unbounded". Used by [RecordingConfig.validate]
+     * and the recorder engines to reject user values that the encoder cannot accept.
+     */
+    val maxVideoBitrateBps: Int = Int.MAX_VALUE,
 ) {
     companion object {
         fun probeMinimal(): CapabilityReport = CapabilityReport(
@@ -22,6 +29,7 @@ data class CapabilityReport(
             androidApi = Build.VERSION.SDK_INT,
             supportsShowTouches = false,
             supportsDynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
+            maxVideoBitrateBps = RecordingConfig.MAX_VIDEO_BITRATE,
         )
     }
 }
