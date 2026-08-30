@@ -33,7 +33,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -91,8 +90,7 @@ fun FloatingNavToolbar(
                 Box(
                     modifier = Modifier
                         .height(48.dp)
-                        .clip(CircleShape)
-                        .background(containerColor)
+                        .background(containerColor, CircleShape)
                         .squishable(enabled = true, scaleDown = 0.92f)
                         .clickable {
                             scope.launch {

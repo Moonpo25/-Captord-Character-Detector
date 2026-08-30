@@ -26,8 +26,12 @@ import com.captord.screenrecorder.core.service.ScreenRecorderService
  * Fade uses [View.setAlpha] only — never [WindowManager.LayoutParams.alpha], which on many
  * devices makes the window stop receiving touches when lowered.
  *
- * FLAG_SECURE is intentionally not used: third-party MediaProjection still captures overlays
- * on most OEMs, and secure windows can produce black boxes without removing the control chrome.
+ * FLAG_SECURE is set on the overlay window so the controls don't appear in screen
+ * recordings (GitHub issue #1, sub-point 6). On a few OEM ROMs this is known to
+ * either render the chrome as a black box or ignore the flag entirely; users who
+ * hit either can disable the overlay capture-hide via the Settings toggle, which
+ * falls back to the previous "always visible" behaviour. The overlay still works
+ * for input in both modes.
  */
 class FloatingOverlayManager(private val context: Context) {
 
@@ -124,7 +128,8 @@ class FloatingOverlayManager(private val context: Context) {
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_SECURE,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
