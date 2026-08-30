@@ -141,7 +141,22 @@ class AdvancedRecorderEngine(
             }
 
             videoEncoder = MediaCodec.createEncoderByType(mime)
-            videoEncoder?.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            BitrateModeFallback.withCbrFallback(
+                primary = {
+                    videoEncoder?.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+                },
+                fallback = {
+                    Log.w(TAG, "VBR rejected by encoder; retrying configure with CBR")
+                    format.setInteger(
+                        MediaFormat.KEY_BITRATE_MODE,
+                        MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR,
+                    )
+                    videoEncoder?.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+                },
+                onFallback = { reason ->
+                    callbacks.onAudioFallback(reason)
+                },
+            )
             inputSurface = videoEncoder?.createInputSurface()
             videoEncoder?.start()
 
