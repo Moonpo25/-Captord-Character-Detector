@@ -106,6 +106,10 @@ class ScreenRecorderService : Service() {
                 stopSelf()
             }
         }
+        // Periodic low-storage check while recording. Cheap; runs every
+        // 15s. If free space falls below the threshold the session is
+        // force-stopped and the engine emits a low_storage error.
+        maybeScheduleLowStorageWatchdog()
         return START_NOT_STICKY
     }
 
@@ -406,6 +410,7 @@ class ScreenRecorderService : Service() {
         unregisterScreenOffReceiver()
         removeOverlay()
         releaseWakeLock()
+        lowStorageHandler.removeCallbacks(lowStorageRunnable)
         try {
             engine?.release()
         } catch (_: Exception) {
@@ -418,8 +423,43 @@ class ScreenRecorderService : Service() {
         Log.i(TAG, "Service destroyed")
     }
 
+    private val lowStorageRunnable = Runnable { checkLowStorageAndStopIfNeeded() }
+    private val lowStorageHandler = android.os.Handler(Looper.getMainLooper())
+
+    private fun maybeScheduleLowStorageWatchdog() {
+        lowStorageHandler.removeCallbacks(lowStorageRunnable)
+        if (engine?.isRecording() == true) {
+            lowStorageHandler.postDelayed(
+                lowStorageRunnable,
+                LOW_STORAGE_CHECK_INTERVAL_MS,
+            )
+        }
+    }
+
+    private fun checkLowStorageAndStopIfNeeded() {
+        val freeBytes = runCatching {
+            val saveDir = android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_MOVIES,
+            )
+            saveDir.usableSpace
+        }.getOrDefault(-1L)
+        if (freeBytes in 0 until LOW_STORAGE_MIN_BYTES) {
+            Log.w(TAG, "Low storage ($freeBytes bytes); stopping recording")
+            emitError(
+                RecordingErrorCode.LOW_STORAGE,
+                "Not enough storage to continue recording",
+                false,
+            )
+            cleanupAndStop(showCompletion = false)
+        } else if (engine?.isRecording() == true) {
+            maybeScheduleLowStorageWatchdog()
+        }
+    }
+
     companion object {
         private const val TAG = "ScreenRecorderService"
+        private const val LOW_STORAGE_CHECK_INTERVAL_MS = 15_000L
+        private const val LOW_STORAGE_MIN_BYTES = 50L * 1024L * 1024L  // 50 MB
         const val ACTION_START = "com.captord.screenrecorder.ACTION_START"
         const val ACTION_STOP = "com.captord.screenrecorder.ACTION_STOP"
         const val ACTION_PAUSE = "com.captord.screenrecorder.ACTION_PAUSE"

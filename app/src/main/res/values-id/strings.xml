@@ -155,6 +155,8 @@
     <!-- Pengaturan: bagian Privasi -->
     <string name="settings_privacy_policy">Kebijakan privasi</string>
     <string name="settings_privacy_policy_summary">Semua audio dan video diproses secara lokal di perangkat.</string>
+    <string name="settings_report_bug">Laporkan masalah</string>
+    <string name="settings_report_bug_summary">Membuka aplikasi email dengan info perangkat terisi otomatis.</string>
     <string name="settings_hardware_features">Profil fitur perangkat keras</string>
     <string name="settings_hardware_features_format">Android SDK API %1$d · H.265 %2$s · FPS [%3$s]</string>
     <string name="settings_h265_supported">Didukung</string>

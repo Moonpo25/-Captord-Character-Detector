@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AudioFile
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.ControlCamera
@@ -542,11 +543,25 @@ title = stringResource(R.string.settings_choose_folder),
             icon = Icons.Filled.Info
         ) {
             ModernClickRow(
-title = stringResource(R.string.settings_privacy_policy),
-                    summary = stringResource(R.string.settings_privacy_policy_summary),
+                title = stringResource(R.string.settings_privacy_policy),
+                summary = stringResource(R.string.settings_privacy_policy_summary),
                 enabled = true,
                 onClick = { showPrivacyDialog = true },
                 icon = Icons.Filled.Info
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            ModernClickRow(
+                title = stringResource(R.string.settings_report_bug),
+                summary = stringResource(R.string.settings_report_bug_summary),
+                enabled = true,
+                onClick = {
+                    runCatching {
+                        context.startActivity(
+                            com.captord.screenrecorder.core.diagnostics.BugReportHelper.build(context),
+                        )
+                    }
+                },
+                icon = Icons.Filled.BugReport
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(

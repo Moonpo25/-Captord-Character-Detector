@@ -155,6 +155,8 @@
     <!-- Settings: Privacy section -->
     <string name="settings_privacy_policy">Privacy policy</string>
     <string name="settings_privacy_policy_summary">All audio and video are processed locally on-device.</string>
+    <string name="settings_report_bug">Report a problem</string>
+    <string name="settings_report_bug_summary">Opens your mail app with device info prefilled.</string>
     <string name="settings_hardware_features">Hardware features profile</string>
     <string name="settings_hardware_features_format">Android SDK API %1$d · H.265 %2$s · FPS [%3$s]</string>
     <string name="settings_h265_supported">Supported</string>
