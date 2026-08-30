@@ -77,6 +77,7 @@ import com.captord.screenrecorder.core.haptics.rememberHapticFeedbackHelper
 import com.captord.screenrecorder.R
 import com.captord.screenrecorder.feature.gallery.GalleryViewModel
 import com.captord.screenrecorder.feature.recorder.RecordingViewModel
+import com.captord.screenrecorder.feature.recorder.model.RecordingErrorContext
 import com.captord.screenrecorder.feature.recorder.model.RecordingSessionState
 import com.captord.screenrecorder.ui.components.squishable
 import com.captord.screenrecorder.ui.theme.CaptordSemanticColors
@@ -455,12 +456,41 @@ fun HomeScreen(
 
                 uiState.lastErrorMessage?.let { message ->
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = message,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Column(horizontalAlignment = Alignment.Start) {
+                        Text(
+                            text = message,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        uiState.lastErrorContext?.let { ctx ->
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
+                                border = BorderStroke(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.error.copy(alpha = 0.3f),
+                                ),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text(
+                                        text = "Configuration at failure",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "${ctx.engine} engine · ${ctx.codec} · ${ctx.resolution} @ ${ctx.frameRate} fps · ${ctx.bitrateBps / 1_000_000} Mbps${if (ctx.audioSource != "off") " · audio=${ctx.audioSource}" else ""}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

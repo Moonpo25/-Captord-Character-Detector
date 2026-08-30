@@ -7,6 +7,8 @@ data class RecordingUiState(
     val lastErrorCode: String? = null,
     val lastErrorMessage: String? = null,
     val lastFinalPath: String? = null,
+    /** Snapshot of the recording config at the moment the last engine error fired. */
+    val lastErrorContext: RecordingErrorContext? = null,
 ) {
     val isRecording: Boolean
         get() = sessionState == RecordingSessionState.RECORDING

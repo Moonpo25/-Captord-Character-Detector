@@ -23,6 +23,7 @@ import com.captord.screenrecorder.feature.recorder.model.RecordingConfig as RecC
 import com.captord.screenrecorder.core.overlay.FloatingOverlayManager
 import com.captord.screenrecorder.feature.recorder.model.RecordingConfig
 import com.captord.screenrecorder.feature.recorder.model.RecordingErrorCode
+import com.captord.screenrecorder.feature.recorder.model.RecordingErrorContext
 import com.captord.screenrecorder.feature.recorder.model.RecordingEvent
 import com.captord.screenrecorder.feature.recorder.model.RecordingSessionState
 import com.captord.screenrecorder.feature.recorder.model.RecordingUiState
@@ -202,6 +203,7 @@ class ScreenRecorderService : Service() {
                         it.copy(
                             lastErrorCode = code,
                             lastErrorMessage = message,
+                            lastErrorContext = errorContext(),
                             sessionState = if (!recoverable) {
                                 RecordingSessionState.ERROR
                             } else {
@@ -317,9 +319,33 @@ class ScreenRecorderService : Service() {
 
     private fun emitError(code: String, message: String, recoverable: Boolean) {
         _uiState.update {
-            it.copy(lastErrorCode = code, lastErrorMessage = message)
+            it.copy(
+                lastErrorCode = code,
+                lastErrorMessage = message,
+                lastErrorContext = errorContext(),
+            )
         }
         emitEvent(RecordingEvent.Error(code, message, recoverable))
+    }
+
+    private fun errorContext(): RecordingErrorContext? {
+        val cfg = currentConfig ?: return null
+        val engine = if (cfg.engineType == RecordingConfig.ENGINE_ADVANCED) "Advanced" else "Standard"
+        val resolution = if (cfg.manualResolutionHeight == 0) "Auto" else "${cfg.manualResolutionHeight}p"
+        val audioSource = when {
+            !cfg.audioEnabled -> "off"
+            cfg.audioSource.equals("internal", ignoreCase = true) -> "system"
+            cfg.audioSource.equals("both", ignoreCase = true) -> "both"
+            else -> "mic"
+        }
+        return RecordingErrorContext(
+            engine = engine,
+            codec = cfg.videoCodec,
+            resolution = resolution,
+            frameRate = cfg.frameRate,
+            bitrateBps = cfg.videoBitrate,
+            audioSource = audioSource,
+        )
     }
 
     private fun emitEvent(event: RecordingEvent) {
