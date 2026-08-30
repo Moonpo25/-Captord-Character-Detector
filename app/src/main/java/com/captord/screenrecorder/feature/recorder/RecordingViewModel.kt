@@ -86,6 +86,29 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun resumeRecording() = repository.resumeRecording()
 
+    /**
+     * Bookmark the moment the user just tapped, keyed by the predicted
+     * final path of the current recording. The path is derived from
+     * the current `filePrefix` setting + a timestamp captured at the
+     * moment [beginStartSequence] is invoked — the same format the
+     * engine uses for its `.mp4` filename, so the preview screen can
+     * look up bookmarks by the actual final path after the recording
+     * is finalized.
+     */
+    fun addBookmarkAtCurrentTime() {
+        val state = _uiState.value
+        if (state.sessionState != RecordingSessionState.RECORDING) return
+        viewModelScope.launch {
+            val prefix = settingsRepository.settings.first().filePrefix
+            val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
+                .format(java.util.Date())
+            val sanitized = com.captord.screenrecorder.core.storage.FilenameUtils
+                .sanitizePrefix(prefix)
+            val finalPath = "Movies/Captord/${sanitized}_$timestamp.mp4"
+            repository.addBookmark(finalPath, state.durationMs)
+        }
+    }
+
     fun notifyProjectionDenied() {
         cancelCountdown()
         repository.notifyProjectionDenied()

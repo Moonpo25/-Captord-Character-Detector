@@ -79,6 +79,25 @@ class RecordingRepository(private val appContext: Context) {
     fun checkCapabilities(): CapabilityReport =
         com.captord.screenrecorder.core.capability.CapabilityChecker.probe(appContext)
 
+    /**
+     * Add a bookmark at [timestampMs] for the recording identified by
+     * [recordingPath]. The path is whatever the caller can identify the
+     * recording with — typically the final `.mp4` path produced by
+     * `PendingOutputStore.buildFinalFile` for an active session.
+     */
+    fun addBookmark(recordingPath: String, timestampMs: Long, label: String? = null) {
+        scope.launch {
+            val store = com.captord.screenrecorder.core.bookmark.DataStoreBookmarkStore.instance(
+                appContext,
+            )
+            store.addBookmark(recordingPath, timestampMs, label)
+        }
+    }
+
+    suspend fun getBookmarks(recordingPath: String) =
+        com.captord.screenrecorder.core.bookmark.DataStoreBookmarkStore.instance(appContext)
+            .getBookmarks(recordingPath)
+
     fun startRecording(config: RecordingConfig, resultCode: Int, projectionData: Intent) {
         when (val validation = config.validate()) {
             is RecordingConfig.ValidationResult.Invalid -> {

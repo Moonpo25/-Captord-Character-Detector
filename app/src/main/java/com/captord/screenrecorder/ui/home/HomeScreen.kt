@@ -408,6 +408,16 @@ fun HomeScreen(
                             ) {
                                 Text(stringResource(R.string.home_pause), fontWeight = FontWeight.Bold)
                             }
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch { haptic.click() }
+                                    viewModel.addBookmarkAtCurrentTime()
+                                },
+                                shape = CircleShape,
+                                modifier = Modifier.squishable()
+                            ) {
+                                Text(stringResource(R.string.home_bookmark), fontWeight = FontWeight.Bold)
+                            }
                             Button(
                                 onClick = {
                                     scope.launch { haptic.heavyClick() }
@@ -430,6 +440,16 @@ fun HomeScreen(
                                 modifier = Modifier.squishable()
                             ) {
                                 Text(stringResource(R.string.home_resume), fontWeight = FontWeight.Bold)
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch { haptic.click() }
+                                    viewModel.addBookmarkAtCurrentTime()
+                                },
+                                shape = CircleShape,
+                                modifier = Modifier.squishable()
+                            ) {
+                                Text(stringResource(R.string.home_bookmark), fontWeight = FontWeight.Bold)
                             }
                             Button(
                                 onClick = {

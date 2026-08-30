@@ -35,6 +35,7 @@
     <string name="home_cancel">Batal</string>
     <string name="home_pause">Jeda</string>
     <string name="home_resume">Lanjut</string>
+    <string name="home_bookmark">Tandai</string>
     <string name="home_stop">Berhenti</string>
     <string name="home_writing_output">Menulis keluaran…</string>
     <string name="home_recent_recordings">Rekaman terbaru</string>

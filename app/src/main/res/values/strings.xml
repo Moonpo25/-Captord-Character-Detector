@@ -35,6 +35,7 @@
     <string name="home_cancel">Cancel</string>
     <string name="home_pause">Pause</string>
     <string name="home_resume">Resume</string>
+    <string name="home_bookmark">Bookmark</string>
     <string name="home_stop">Stop</string>
     <string name="home_writing_output">Writing output…</string>
     <string name="home_recent_recordings">Recent recordings</string>
