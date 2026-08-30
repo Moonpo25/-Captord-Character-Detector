@@ -35,9 +35,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.captord.screenrecorder.R
 import com.captord.screenrecorder.core.haptics.HapticFeedbackHelper
 import com.captord.screenrecorder.core.haptics.rememberHapticFeedbackHelper
 import kotlinx.coroutines.launch
@@ -53,9 +55,9 @@ fun FloatingNavToolbar(
     val scope = rememberCoroutineScope()
 
     val destinations = listOf(
-        FloatingNavDestination(0, "Home", Icons.Filled.Home),
-        FloatingNavDestination(1, "Gallery", Icons.Filled.VideoLibrary),
-        FloatingNavDestination(2, "Settings", Icons.Filled.Settings)
+        FloatingNavDestination(0, stringResource(R.string.nav_home), Icons.Filled.Home),
+        FloatingNavDestination(1, stringResource(R.string.nav_gallery), Icons.Filled.VideoLibrary),
+        FloatingNavDestination(2, stringResource(R.string.nav_settings), Icons.Filled.Settings)
     )
 
     Surface(

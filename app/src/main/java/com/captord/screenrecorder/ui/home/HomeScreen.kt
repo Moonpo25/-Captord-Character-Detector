@@ -62,6 +62,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -121,12 +122,12 @@ fun HomeScreen(
     val isActive = isRecording || isPaused
 
     val statusLabel = when (uiState.sessionState) {
-        RecordingSessionState.IDLE -> "Ready"
-        RecordingSessionState.COUNTDOWN -> "Countdown"
-        RecordingSessionState.RECORDING -> "Recording"
-        RecordingSessionState.PAUSED -> "Paused"
-        RecordingSessionState.STOPPING -> "Finalizing"
-        RecordingSessionState.ERROR -> "Error"
+        RecordingSessionState.IDLE -> stringResource(R.string.home_status_ready)
+        RecordingSessionState.COUNTDOWN -> stringResource(R.string.home_status_countdown)
+        RecordingSessionState.RECORDING -> stringResource(R.string.home_status_recording)
+        RecordingSessionState.PAUSED -> stringResource(R.string.home_status_paused)
+        RecordingSessionState.STOPPING -> stringResource(R.string.home_status_finalizing)
+        RecordingSessionState.ERROR -> stringResource(R.string.home_status_error)
     }
 
     val statusColor = when (uiState.sessionState) {
@@ -287,7 +288,7 @@ fun HomeScreen(
                             if (isActive) {
                                 Icon(
                                     imageVector = Icons.Default.Stop,
-                                    contentDescription = "Stop recording",
+                                    contentDescription = stringResource(R.string.home_cd_stop_recording),
                                     tint = Color.White,
                                     modifier = Modifier.size(32.dp)
                                 )
@@ -301,7 +302,7 @@ fun HomeScreen(
                             } else {
                                 Icon(
                                     imageVector = Icons.Default.FiberManualRecord,
-                                    contentDescription = "Start recording",
+                                    contentDescription = stringResource(R.string.home_cd_start_recording),
                                     tint = Color.White,
                                     modifier = Modifier.size(36.dp)
                                 )
@@ -381,7 +382,7 @@ fun HomeScreen(
                                 modifier = Modifier.squishable(),
                                 colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
                             ) {
-                                Text("Start screen capture", fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.home_start_screen_capture), fontWeight = FontWeight.Bold)
                             }
                         }
                         RecordingSessionState.COUNTDOWN -> {
@@ -393,7 +394,7 @@ fun HomeScreen(
                                 shape = CircleShape,
                                 modifier = Modifier.squishable()
                             ) {
-                                Text("Cancel", fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.home_cancel), fontWeight = FontWeight.Bold)
                             }
                         }
                         RecordingSessionState.RECORDING -> {
@@ -405,7 +406,7 @@ fun HomeScreen(
                                 shape = CircleShape,
                                 modifier = Modifier.squishable()
                             ) {
-                                Text("Pause", fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.home_pause), fontWeight = FontWeight.Bold)
                             }
                             Button(
                                 onClick = {
@@ -416,7 +417,7 @@ fun HomeScreen(
                                 modifier = Modifier.squishable(),
                                 colors = ButtonDefaults.buttonColors(containerColor = recColor)
                             ) {
-                                Text("Stop", fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.home_stop), fontWeight = FontWeight.Bold)
                             }
                         }
                         RecordingSessionState.PAUSED -> {
@@ -428,7 +429,7 @@ fun HomeScreen(
                                 shape = CircleShape,
                                 modifier = Modifier.squishable()
                             ) {
-                                Text("Resume", fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.home_resume), fontWeight = FontWeight.Bold)
                             }
                             Button(
                                 onClick = {
@@ -439,7 +440,7 @@ fun HomeScreen(
                                 modifier = Modifier.squishable(),
                                 colors = ButtonDefaults.buttonColors(containerColor = recColor)
                             ) {
-                                Text("Stop", fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.home_stop), fontWeight = FontWeight.Bold)
                             }
                         }
                         RecordingSessionState.STOPPING -> {
@@ -448,7 +449,7 @@ fun HomeScreen(
                                 enabled = false,
                                 shape = CircleShape
                             ) {
-                                Text("Writing output…", fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.home_writing_output), fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -476,14 +477,29 @@ fun HomeScreen(
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     Text(
-                                        text = "Configuration at failure",
+                                        text = stringResource(R.string.home_error_context_label),
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onErrorContainer,
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "${ctx.engine} engine · ${ctx.codec} · ${ctx.resolution} @ ${ctx.frameRate} fps · ${ctx.bitrateBps / 1_000_000} Mbps${if (ctx.audioSource != "off") " · audio=${ctx.audioSource}" else ""}",
+                                        text = stringResource(
+                                            R.string.home_error_context_format,
+                                            ctx.engine,
+                                            ctx.codec,
+                                            ctx.resolution,
+                                            ctx.frameRate,
+                                            ctx.bitrateBps / 1_000_000,
+                                            if (ctx.audioSource != "off") {
+                                                stringResource(
+                                                    R.string.home_error_context_audio_suffix,
+                                                    ctx.audioSource,
+                                                )
+                                            } else {
+                                                ""
+                                            },
+                                        ),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onErrorContainer,
                                     )
@@ -504,7 +520,7 @@ fun HomeScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Recent recordings",
+                text = stringResource(R.string.home_recent_recordings),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -516,7 +532,7 @@ fun HomeScreen(
                 },
                 modifier = Modifier.squishable()
             ) {
-                Text("See all", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.home_see_all), fontWeight = FontWeight.Bold)
             }
         }
 
@@ -534,7 +550,7 @@ fun HomeScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Your recording log is empty.",
+                        text = stringResource(R.string.home_empty_log),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
@@ -563,8 +579,15 @@ fun HomeScreen(
     galleryState.pendingDeletePath?.let { path ->
         AlertDialog(
             onDismissRequest = galleryViewModel::cancelDeleteDialog,
-            title = { Text("Delete file", fontWeight = FontWeight.Bold) },
-            text = { Text("This will permanently remove ${path.substringAfterLast('/')} from storage.") },
+            title = { Text(stringResource(R.string.home_delete_dialog_title), fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.home_delete_dialog_text,
+                        path.substringAfterLast('/'),
+                    ),
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -572,12 +595,16 @@ fun HomeScreen(
                         galleryViewModel.confirmDelete()
                     }
                 ) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                    Text(
+                        stringResource(R.string.home_delete_dialog_confirm),
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold,
+                    )
                 }
             },
             dismissButton = {
                 TextButton(onClick = galleryViewModel::cancelDeleteDialog) {
-                    Text("Cancel", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.home_delete_dialog_cancel), fontWeight = FontWeight.Bold)
                 }
             },
         )
@@ -645,12 +672,12 @@ private fun RecentRecordingCard(
                             },
                             modifier = Modifier.size(28.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = "Share",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
-                            )
+Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = stringResource(R.string.home_cd_share),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
+                        )
                         }
                         IconButton(
                             onClick = {
@@ -659,12 +686,12 @@ private fun RecentRecordingCard(
                             },
                             modifier = Modifier.size(28.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.DeleteOutline,
-                                contentDescription = "Delete",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(16.dp)
-                            )
+Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = stringResource(R.string.home_cd_delete),
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(16.dp)
+                        )
                         }
                     }
                 }

@@ -75,6 +75,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -84,6 +85,7 @@ import com.captord.screenrecorder.core.haptics.HapticFeedbackHelper
 import com.captord.screenrecorder.core.haptics.rememberHapticFeedbackHelper
 import com.captord.screenrecorder.core.overlay.FloatingOverlayManager
 import com.captord.screenrecorder.core.settings.AppSettings
+import com.captord.screenrecorder.R
 import com.captord.screenrecorder.feature.recorder.model.RecordingConfig
 import com.captord.screenrecorder.feature.settings.SettingsViewModel
 import com.captord.screenrecorder.ui.components.squishable
@@ -141,7 +143,7 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            "Settings",
+            stringResource(R.string.settings_title),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Black,
             color = MaterialTheme.colorScheme.onSurface
@@ -166,11 +168,11 @@ fun SettingsScreen(
 
         // Section 1: Recording General
         ModernSectionCard(
-            title = "Recording",
+            title = stringResource(R.string.settings_section_recording),
             icon = Icons.Filled.Tune
         ) {
             Text(
-                text = "Engine",
+                text = stringResource(R.string.settings_engine),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -179,8 +181,8 @@ fun SettingsScreen(
             ExpressiveButtonGroup(
                 selected = settings.engineType,
                 options = listOf(
-                    ExpressiveButtonOption(RecordingConfig.ENGINE_STANDARD, "Standard", !qualityLocked),
-                    ExpressiveButtonOption(RecordingConfig.ENGINE_ADVANCED, "Advanced", !qualityLocked)
+                    ExpressiveButtonOption(RecordingConfig.ENGINE_STANDARD, stringResource(R.string.settings_engine_standard), !qualityLocked),
+                    ExpressiveButtonOption(RecordingConfig.ENGINE_ADVANCED, stringResource(R.string.settings_engine_advanced), !qualityLocked)
                 ),
                 onSelectedChange = {
                     viewModel.setEngineType(it)
@@ -201,7 +203,7 @@ fun SettingsScreen(
             )
 
             ModernClickRow(
-                title = "Countdown timer",
+                title = stringResource(R.string.settings_countdown),
                 summary = countdownLabel(settings.countdownSec),
                 enabled = !qualityLocked,
                 onClick = { sheet = SettingsSheet.Countdown },
@@ -211,11 +213,11 @@ fun SettingsScreen(
 
         // Section 2: Video Configuration
         ModernSectionCard(
-            title = "Video",
+            title = stringResource(R.string.settings_section_video),
             icon = Icons.Filled.Videocam
         ) {
             ModernClickRow(
-                title = "Frame rate",
+                title = stringResource(R.string.settings_frame_rate),
                 summary = "${settings.frameRate} fps",
                 enabled = !qualityLocked,
                 onClick = { sheet = SettingsSheet.FrameRate },
@@ -224,7 +226,7 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Video codec",
+                text = stringResource(R.string.settings_video_codec),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -233,8 +235,8 @@ fun SettingsScreen(
             ExpressiveButtonGroup(
                 selected = settings.videoCodec,
                 options = listOf(
-                    ExpressiveButtonOption("H264", "H.264", !qualityLocked),
-                    ExpressiveButtonOption("H265", "H.265", !qualityLocked && capabilities.supportsH265)
+                    ExpressiveButtonOption("H264", stringResource(R.string.settings_codec_h264), !qualityLocked),
+                    ExpressiveButtonOption("H265", stringResource(R.string.settings_codec_h265), !qualityLocked && capabilities.supportsH265)
                 ),
                 onSelectedChange = { viewModel.setVideoCodec(it) }
             )
@@ -254,7 +256,7 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Video bitrate",
+                    stringResource(R.string.settings_video_bitrate),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -295,14 +297,14 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
             ModernClickRow(
-                title = "Resolution short-side",
+                title = stringResource(R.string.settings_resolution),
                 summary = resolutionLabel(settings.manualResolutionHeight),
                 enabled = !qualityLocked,
                 onClick = { sheet = SettingsSheet.Resolution },
                 icon = Icons.Filled.AspectRatio
             )
             ModernClickRow(
-                title = "Orientation lock",
+                title = stringResource(R.string.settings_orientation),
                 summary = settings.orientationMode.replaceFirstChar { it.uppercase() },
                 enabled = !qualityLocked,
                 onClick = { sheet = SettingsSheet.Orientation },
@@ -312,11 +314,11 @@ fun SettingsScreen(
 
         // Section 3: Audio Options
         ModernSectionCard(
-            title = "Audio",
+            title = stringResource(R.string.settings_section_audio),
             icon = Icons.Filled.AudioFile
         ) {
             ModernSwitchRow(
-                title = "Record audio track",
+                title = stringResource(R.string.settings_record_audio),
                 checked = settings.audioEnabled,
                 enabled = !qualityLocked,
                 onCheckedChange = {
@@ -332,7 +334,7 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "Audio input source",
+                    text = stringResource(R.string.settings_audio_source),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -341,9 +343,9 @@ fun SettingsScreen(
                 ExpressiveButtonGroup(
                     selected = settings.audioSource,
                     options = listOf(
-                        ExpressiveButtonOption("mic", "Mic", !qualityLocked),
-                        ExpressiveButtonOption("internal", "System", !qualityLocked && internalOk),
-                        ExpressiveButtonOption("both", "Both", !qualityLocked && internalOk)
+                        ExpressiveButtonOption("mic", stringResource(R.string.settings_audio_mic), !qualityLocked),
+                        ExpressiveButtonOption("internal", stringResource(R.string.settings_audio_system), !qualityLocked && internalOk),
+                        ExpressiveButtonOption("both", stringResource(R.string.settings_audio_both), !qualityLocked && internalOk)
                     ),
                     onSelectedChange = { viewModel.setAudioSource(it) }
                 )
@@ -360,7 +362,7 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Sample rate",
+                    text = stringResource(R.string.settings_sample_rate),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -377,7 +379,7 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
                 Text(
-                    text = "Channels",
+                    text = stringResource(R.string.settings_channels),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -386,15 +388,15 @@ fun SettingsScreen(
                 ExpressiveButtonGroup(
                     selected = settings.audioChannel,
                     options = listOf(
-                        ExpressiveButtonOption(1, "Mono", !qualityLocked),
-                        ExpressiveButtonOption(2, "Stereo", !qualityLocked)
+                        ExpressiveButtonOption(1, stringResource(R.string.settings_channel_mono), !qualityLocked),
+                        ExpressiveButtonOption(2, stringResource(R.string.settings_channel_stereo), !qualityLocked)
                     ),
                     onSelectedChange = { viewModel.setAudioChannel(it) }
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
                 ModernClickRow(
-                    title = "Audio bitrate",
+                    title = stringResource(R.string.settings_audio_bitrate),
                     summary = "${settings.audioBitrate / 1000} Kbps",
                     enabled = !qualityLocked,
                     onClick = { sheet = SettingsSheet.AudioBitrate },
@@ -405,11 +407,11 @@ fun SettingsScreen(
 
         // Section 4: Controls
         ModernSectionCard(
-            title = "Controls",
+            title = stringResource(R.string.settings_section_controls),
             icon = Icons.Filled.ControlCamera
         ) {
             ModernSwitchRow(
-                title = "Floating overlay panel",
+                title = stringResource(R.string.settings_overlay_panel),
                 checked = settings.showOverlay && canOverlay,
                 enabled = !qualityLocked,
                 onCheckedChange = {
@@ -420,7 +422,7 @@ fun SettingsScreen(
                 supportingText = if (!canOverlay) "Requires overlay permission" else null
             )
             ModernSwitchRow(
-                title = "Hide overlay from recording",
+                title = stringResource(R.string.settings_hide_overlay_capture),
                 checked = settings.hideOverlayFromCapture,
                 enabled = settings.showOverlay && canOverlay && !qualityLocked,
                 onCheckedChange = {
@@ -432,8 +434,8 @@ fun SettingsScreen(
             )
             if (!canOverlay) {
                 ModernClickRow(
-                    title = "Overlay permission required",
-                    summary = "Tap to grant display overlay capability",
+                    title = stringResource(R.string.settings_overlay_permission_row),
+                    summary = stringResource(R.string.settings_overlay_permission_row_summary),
                     enabled = true,
                     onClick = {
                         context.startActivity(
@@ -447,14 +449,14 @@ fun SettingsScreen(
             // show-touches requires privileged WRITE_SETTINGS; not available for normal apps (MVP: hide)
 
             ModernClickRow(
-                title = "Maximum segment size",
+                title = stringResource(R.string.settings_max_segment_size),
                 summary = if (settings.maxFileSizeMb == 0) "Unlimited" else "${settings.maxFileSizeMb} MB",
                 enabled = !qualityLocked,
                 onClick = { sheet = SettingsSheet.MaxFileSize },
                 icon = Icons.Filled.CallSplit
             )
             ModernClickRow(
-                title = "Output file prefix",
+                title = stringResource(R.string.settings_file_prefix),
                 summary = settings.filePrefix,
                 enabled = !qualityLocked,
                 onClick = {
@@ -467,7 +469,7 @@ fun SettingsScreen(
 
         // Section 5: Files
         ModernSectionCard(
-            title = "Files",
+            title = stringResource(R.string.settings_section_files),
             icon = Icons.Filled.Folder
         ) {
             Row(
@@ -478,7 +480,7 @@ fun SettingsScreen(
             ) {
                 Column {
                     Text(
-                        "Save path",
+                        stringResource(R.string.settings_save_path),
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface
@@ -491,8 +493,8 @@ fun SettingsScreen(
                 }
             }
             ModernClickRow(
-                title = "Choose custom folder",
-                summary = "Uses Android folder access",
+title = stringResource(R.string.settings_choose_folder),
+                    summary = stringResource(R.string.settings_choose_folder_summary),
                 enabled = !qualityLocked,
                 onClick = { folderPicker.launch(null) },
                 icon = Icons.Filled.Folder,
@@ -501,11 +503,11 @@ fun SettingsScreen(
 
         // Section 6: Appearance
         ModernSectionCard(
-            title = "Appearance",
+            title = stringResource(R.string.settings_section_appearance),
             icon = Icons.Filled.Palette
         ) {
             Text(
-                text = "Color scheme theme",
+                text = stringResource(R.string.settings_color_scheme_theme),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -514,16 +516,16 @@ fun SettingsScreen(
             ExpressiveButtonGroup(
                 selected = settings.themeMode,
                 options = listOf(
-                    ExpressiveButtonOption(AppSettings.THEME_SYSTEM, "System"),
-                    ExpressiveButtonOption(AppSettings.THEME_LIGHT, "Light"),
-                    ExpressiveButtonOption(AppSettings.THEME_DARK, "Dark")
+                    ExpressiveButtonOption(AppSettings.THEME_SYSTEM, stringResource(R.string.settings_theme_system)),
+                    ExpressiveButtonOption(AppSettings.THEME_LIGHT, stringResource(R.string.settings_theme_light)),
+                    ExpressiveButtonOption(AppSettings.THEME_DARK, stringResource(R.string.settings_theme_dark))
                 ),
                 onSelectedChange = { viewModel.setThemeMode(it) }
             )
 
             Spacer(modifier = Modifier.height(14.dp))
             ModernSwitchRow(
-                title = "Material You dynamic color",
+                title = stringResource(R.string.settings_dynamic_color),
                 checked = settings.dynamicColorEnabled,
                 enabled = capabilities.supportsDynamicColor || Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
                 onCheckedChange = {
@@ -536,12 +538,12 @@ fun SettingsScreen(
 
         // Section 7: Privacy & Details
         ModernSectionCard(
-            title = "Privacy & App Info",
+            title = stringResource(R.string.settings_section_privacy),
             icon = Icons.Filled.Info
         ) {
             ModernClickRow(
-                title = "Privacy policy",
-                summary = "All audio and video are processed locally on-device.",
+title = stringResource(R.string.settings_privacy_policy),
+                    summary = stringResource(R.string.settings_privacy_policy_summary),
                 enabled = true,
                 onClick = { showPrivacyDialog = true },
                 icon = Icons.Filled.Info
@@ -554,7 +556,7 @@ fun SettingsScreen(
             ) {
                 Column {
                     Text(
-                        "Hardware features profile",
+                        stringResource(R.string.settings_hardware_features),
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface

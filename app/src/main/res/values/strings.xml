@@ -1,13 +1,182 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- App identity -->
     <string name="app_name">Captord</string>
+
+    <!-- Notification -->
     <string name="notif_title_recording">Captord · Recording</string>
     <string name="notif_title_paused">Captord · Paused</string>
     <string name="notif_saved_title">Recording saved</string>
     <string name="notif_saved_text">Tap to open Captord</string>
+
+    <!-- Shortcuts -->
     <string name="shortcut_start_short">Start</string>
     <string name="shortcut_start_long">Start recording</string>
     <string name="shortcut_stop_short">Stop</string>
     <string name="shortcut_stop_long">Stop recording</string>
+
+    <!-- Quick Settings Tile -->
     <string name="tile_label">Screen record</string>
+
+    <!-- Navigation destinations -->
+    <string name="nav_home">Home</string>
+    <string name="nav_gallery">Gallery</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Home screen -->
+    <string name="home_tap_to_record">Tap to record</string>
+    <string name="home_status_ready">Ready</string>
+    <string name="home_status_countdown">Countdown</string>
+    <string name="home_status_recording">Recording</string>
+    <string name="home_status_paused">Paused</string>
+    <string name="home_status_finalizing">Finalizing</string>
+    <string name="home_status_error">Error</string>
+    <string name="home_start_screen_capture">Start screen capture</string>
+    <string name="home_cancel">Cancel</string>
+    <string name="home_pause">Pause</string>
+    <string name="home_resume">Resume</string>
+    <string name="home_stop">Stop</string>
+    <string name="home_writing_output">Writing output…</string>
+    <string name="home_recent_recordings">Recent recordings</string>
+    <string name="home_see_all">See all</string>
+    <string name="home_empty_log">Your recording log is empty.</string>
+    <string name="home_record_fab">Record</string>
+    <string name="home_cd_stop_recording">Stop recording</string>
+    <string name="home_cd_start_recording">Start recording</string>
+    <string name="home_cd_share">Share</string>
+    <string name="home_cd_delete">Delete</string>
+    <string name="home_delete_dialog_title">Delete file</string>
+    <string name="home_delete_dialog_text">This will permanently remove %1$s from storage.</string>
+    <string name="home_delete_dialog_confirm">Delete</string>
+    <string name="home_delete_dialog_cancel">Cancel</string>
+    <string name="home_error_context_label">Configuration at failure</string>
+    <string name="home_error_context_format">%1$s engine · %2$s · %3$s @ %4$d fps · %5$d Mbps%6$s</string>
+    <string name="home_error_context_audio_suffix"> · audio=%1$s</string>
+    <string name="home_size_mb_format">%1$s MB</string>
+
+    <!-- Gallery -->
+    <string name="gallery_title">Gallery</string>
+    <string name="gallery_empty">No recordings found. Tap record to start.</string>
+    <string name="gallery_delete_dialog_text">This will permanently remove %1$s from storage.</string>
+
+    <!-- Preview -->
+    <string name="preview_file_not_found">File not found</string>
+    <string name="preview_cd_back">Back</string>
+    <string name="preview_cd_share">Share</string>
+    <string name="preview_cd_delete">Delete</string>
+    <string name="preview_cd_pause">Pause</string>
+    <string name="preview_cd_play">Play</string>
+    <string name="preview_time_format">%1$s / %2$s</string>
+
+    <!-- Settings: top-level -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_quality_locked">Configurations are locked during active recording sessions.</string>
+
+    <!-- Settings sections -->
+    <string name="settings_section_recording">Recording</string>
+    <string name="settings_section_video">Video</string>
+    <string name="settings_section_audio">Audio</string>
+    <string name="settings_section_controls">Controls</string>
+    <string name="settings_section_files">Files</string>
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_section_privacy">Privacy &amp; App Info</string>
+
+    <!-- Settings: Recording section -->
+    <string name="settings_engine">Engine</string>
+    <string name="settings_engine_standard">Standard</string>
+    <string name="settings_engine_advanced">Advanced</string>
+    <string name="settings_engine_standard_desc">Stable MediaRecorder path for screen + microphone.</string>
+    <string name="settings_engine_advanced_desc">MediaCodec path: high FPS, internal audio, safer split.</string>
+    <string name="settings_countdown">Countdown timer</string>
+    <string name="settings_countdown_off">Off</string>
+    <string name="settings_countdown_format">%1$d seconds</string>
+
+    <!-- Settings: Video section -->
+    <string name="settings_frame_rate">Frame rate</string>
+    <string name="settings_frame_rate_format">%1$d fps</string>
+    <string name="settings_video_codec">Video codec</string>
+    <string name="settings_codec_h264">H.264</string>
+    <string name="settings_codec_h265">H.265</string>
+    <string name="settings_h265_unsupported">H.265 (HEVC) is not supported by your hardware profile.</string>
+    <string name="settings_video_bitrate">Video bitrate</string>
+    <string name="settings_mbps_format">%1$d Mbps</string>
+    <string name="settings_resolution">Resolution short-side</string>
+    <string name="settings_resolution_auto">Auto adaptive</string>
+    <string name="settings_resolution_format">%1$dp</string>
+    <string name="settings_orientation">Orientation lock</string>
+    <string name="settings_orientation_auto">Auto adaptive</string>
+    <string name="settings_orientation_portrait">Portrait forced</string>
+    <string name="settings_orientation_landscape">Landscape forced</string>
+
+    <!-- Settings: Audio section -->
+    <string name="settings_record_audio">Record audio track</string>
+    <string name="settings_audio_source">Audio input source</string>
+    <string name="settings_audio_mic">Mic</string>
+    <string name="settings_audio_system">System</string>
+    <string name="settings_audio_both">Both</string>
+    <string name="settings_audio_source_need_advanced">System/Both options require Advanced engine.</string>
+    <string name="settings_audio_source_need_api29">System audio capture requires Android 10+.</string>
+    <string name="settings_audio_source_policy">Certain apps may block internal audio recording by policy.</string>
+    <string name="settings_sample_rate">Sample rate</string>
+    <string name="settings_sample_rate_44_1">44.1 kHz</string>
+    <string name="settings_sample_rate_48">48 kHz</string>
+    <string name="settings_channels">Channels</string>
+    <string name="settings_channel_mono">Mono</string>
+    <string name="settings_channel_stereo">Stereo</string>
+    <string name="settings_audio_bitrate">Audio bitrate</string>
+    <string name="settings_kbps_format">%1$d Kbps</string>
+
+    <!-- Settings: Controls section -->
+    <string name="settings_overlay_panel">Floating overlay panel</string>
+    <string name="settings_overlay_panel_needs_permission">Requires overlay permission</string>
+    <string name="settings_overlay_permission_row">Overlay permission required</string>
+    <string name="settings_overlay_permission_row_summary">Tap to grant display overlay capability</string>
+    <string name="settings_hide_overlay_capture">Hide overlay from recording</string>
+    <string name="settings_hide_overlay_capture_desc">Adds FLAG_SECURE; some OEM ROMs may show a black box instead.</string>
+    <string name="settings_max_segment_size">Maximum segment size</string>
+    <string name="settings_max_segment_unlimited">Unlimited</string>
+    <string name="settings_max_segment_format">%1$d MB</string>
+    <string name="settings_file_prefix">Output file prefix</string>
+
+    <!-- Settings: Files section -->
+    <string name="settings_save_path">Save path</string>
+    <string name="settings_choose_folder">Choose custom folder</string>
+    <string name="settings_choose_folder_summary">Uses Android folder access</string>
+    <string name="settings_selected_folder">Selected folder</string>
+
+    <!-- Settings: Appearance section -->
+    <string name="settings_color_scheme_theme">Color scheme theme</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_dynamic_color">Material You dynamic color</string>
+
+    <!-- Settings: Privacy section -->
+    <string name="settings_privacy_policy">Privacy policy</string>
+    <string name="settings_privacy_policy_summary">All audio and video are processed locally on-device.</string>
+    <string name="settings_hardware_features">Hardware features profile</string>
+    <string name="settings_hardware_features_format">Android SDK API %1$d · H.265 %2$s · FPS [%3$s]</string>
+    <string name="settings_h265_supported">Supported</string>
+    <string name="settings_h265_unsupported_short">Unsupported</string>
+
+    <!-- Settings: file prefix dialog -->
+    <string name="settings_file_prefix_dialog_title">Output prefix</string>
+    <string name="settings_file_prefix_dialog_field">File Prefix</string>
+    <string name="settings_save">Save</string>
+
+    <!-- Settings: privacy dialog -->
+    <string name="settings_privacy_dialog_title">Privacy Policy</string>
+    <string name="settings_privacy_dialog_body">Captord processes screen capture and audio locally on this device. Recordings are not uploaded, and the MVP includes no external analytics or trackers. Screen capture requires MediaProjection consent; microphone and internal audio require the applicable Android permissions and source-app support. Overlay access is used only for optional recording controls. Recordings remain in the selected local folder until you delete them.\n\nYour screen and audio content belong purely to you.</string>
+    <string name="settings_close">Close</string>
+
+    <!-- Settings: bottom sheets -->
+    <string name="settings_sheet_countdown">Select Countdown Timer</string>
+    <string name="settings_sheet_frame_rate">Select Frame Rate</string>
+    <string name="settings_sheet_resolution">Select Resolution</string>
+    <string name="settings_sheet_orientation">Select Orientation Mode</string>
+    <string name="settings_sheet_audio_bitrate">Select Audio Bitrate</string>
+    <string name="settings_sheet_max_file_size">Select Auto Split Size</string>
+
+    <!-- Share intent -->
+    <string name="share_chooser_title">Share recording</string>
 </resources>

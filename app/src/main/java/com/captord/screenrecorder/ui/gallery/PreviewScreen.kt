@@ -54,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -64,6 +65,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import com.captord.screenrecorder.R
 import com.captord.screenrecorder.core.gallery.ShareHelper
 import com.captord.screenrecorder.core.haptics.HapticFeedbackHelper
 import com.captord.screenrecorder.core.haptics.rememberHapticFeedbackHelper
@@ -149,7 +151,7 @@ fun PreviewScreen(
                         },
                         modifier = Modifier.squishable(scaleDown = 0.90f)
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.preview_cd_back))
                     }
                 },
                 actions = {
@@ -160,7 +162,7 @@ fun PreviewScreen(
                         },
                         modifier = Modifier.squishable(scaleDown = 0.90f)
                     ) {
-                        Icon(Icons.Filled.Share, contentDescription = "Share")
+                        Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.preview_cd_share))
                     }
                     IconButton(
                         onClick = {
@@ -169,7 +171,7 @@ fun PreviewScreen(
                         },
                         modifier = Modifier.squishable(scaleDown = 0.90f)
                     ) {
-                        Icon(Icons.Filled.DeleteOutline, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                        Icon(Icons.Filled.DeleteOutline, contentDescription = stringResource(R.string.preview_cd_delete), tint = MaterialTheme.colorScheme.error)
                     }
                 },
             )
@@ -184,7 +186,7 @@ fun PreviewScreen(
             if (!File(path).isFile) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        "File not found",
+                        stringResource(R.string.preview_file_not_found),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
@@ -296,15 +298,15 @@ fun PreviewScreen(
                             Crossfade(targetState = isPlaying, label = "play_state_anim") { playing ->
                                 if (playing) {
                                     Icon(
-                                        imageVector = Icons.Default.Pause,
-                                        contentDescription = "Pause",
+imageVector = Icons.Default.Pause,
+                                    contentDescription = stringResource(R.string.preview_cd_pause),
                                         tint = playContent,
                                         modifier = Modifier.size(32.dp)
                                     )
                                 } else {
                                     Icon(
-                                        imageVector = Icons.Default.PlayArrow,
-                                        contentDescription = "Play",
+imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = stringResource(R.string.preview_cd_play),
                                         tint = playContent,
                                         modifier = Modifier.size(36.dp)
                                     )
@@ -320,8 +322,8 @@ fun PreviewScreen(
     if (showDelete) {
         AlertDialog(
             onDismissRequest = { showDelete = false },
-            title = { Text("Delete file", fontWeight = FontWeight.Bold) },
-            text = { Text("This will permanently remove $fileName from storage.") },
+            title = { Text(stringResource(R.string.home_delete_dialog_title), fontWeight = FontWeight.Bold) },
+            text = { Text(stringResource(R.string.home_delete_dialog_text, fileName)) },
             confirmButton = {
                 TextButton(
                     onClick = {

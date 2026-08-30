@@ -30,10 +30,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.captord.screenrecorder.R
 import com.captord.screenrecorder.core.gallery.ShareHelper
 import com.captord.screenrecorder.core.haptics.HapticFeedbackHelper
 import com.captord.screenrecorder.core.haptics.rememberHapticFeedbackHelper
@@ -74,7 +76,7 @@ fun GalleryScreen(
                 .padding(top = 16.dp),
         ) {
             Text(
-                text = "Gallery",
+                text = stringResource(R.string.gallery_title),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Black,
                 color = MaterialTheme.colorScheme.onSurface
@@ -90,7 +92,7 @@ fun GalleryScreen(
                 uiState.items.isEmpty() -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            text = "No recordings found. Tap record to start.",
+                            text = stringResource(R.string.gallery_empty),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Medium
@@ -134,7 +136,7 @@ fun GalleryScreen(
                         tint = MaterialTheme.colorScheme.error
                     )
                 },
-                text = { Text("Record", fontWeight = FontWeight.Bold) },
+                text = { Text(stringResource(R.string.home_record_fab), fontWeight = FontWeight.Bold) },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(bottom = 96.dp, end = 24.dp)
@@ -147,7 +149,7 @@ fun GalleryScreen(
         AlertDialog(
             onDismissRequest = galleryViewModel::cancelDeleteDialog,
             title = { Text("Delete file", fontWeight = FontWeight.Bold) },
-            text = { Text("This will permanently remove ${path.substringAfterLast('/')} from storage.") },
+            text = { Text(stringResource(R.string.gallery_delete_dialog_text, path.substringAfterLast('/'))) },
             confirmButton = {
                 TextButton(
                     onClick = {
