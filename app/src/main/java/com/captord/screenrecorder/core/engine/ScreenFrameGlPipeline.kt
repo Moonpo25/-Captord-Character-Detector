@@ -1,6 +1,7 @@
 package com.captord.screenrecorder.core.engine
 
 import android.graphics.Bitmap
+import android.graphics.SurfaceTexture
 import android.view.Surface
 
 class ScreenFrameGlPipeline(
@@ -9,9 +10,16 @@ class ScreenFrameGlPipeline(
     private val height: Int,
     private val onFrame: (Bitmap) -> Unit
 ) {
+    private var surfaceTexture: SurfaceTexture? = null
+    private var inputSurface: Surface? = null
+
     fun getInputSurface(): Surface = encoderSurface
 
     fun release() {
-        // Surface is owned by the recorder.
+        inputSurface?.release()
+        inputSurface = null
+
+        surfaceTexture?.release()
+        surfaceTexture = null
     }
 }
