@@ -12,6 +12,6 @@ class ScreenFrameGlPipeline(
     fun getInputSurface(): Surface = encoderSurface
 
     fun release() {
-        // Surface owned by the recorder.
+        // Surface is owned by the recorder.
     }
 }
