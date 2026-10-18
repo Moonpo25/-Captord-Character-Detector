@@ -28,6 +28,14 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Download Arabic OCR data
+        run: |
+          mkdir -p app/src/main/assets/tessdata
+          curl -fL \
+            "https://github.com/tesseract-ocr/tessdata_fast/raw/main/ara.traineddata" \
+            -o app/src/main/assets/tessdata/ara.traineddata
+          test -s app/src/main/assets/tessdata/ara.traineddata
+
       - name: Build APK
         run: |
           chmod +x gradlew
