@@ -465,7 +465,9 @@ fun HomeScreen(
             }
         }
 
-        Spacer(Modifier.height(24.dp))
+        DetectionSettingsCard()
+
+Spacer(Modifier.height(24.dp))
 
         // Recent items header
         Row(
