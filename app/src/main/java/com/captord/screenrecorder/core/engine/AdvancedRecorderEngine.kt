@@ -49,6 +49,11 @@ class AdvancedRecorderEngine(
     private var projection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
 
+    // Optional live OCR pipeline. The GL pipeline mirrors the display to the
+    // encoder and sends occasional frames to the name detector.
+    private var frameGlPipeline: ScreenFrameGlPipeline? = null
+    private var frameAnalyzer: ScreenFrameAnalyzer? = null
+
     private var videoEncoder: MediaCodec? = null
     private var inputSurface: Surface? = null
     private var mediaMuxer: MediaMuxer? = null
@@ -271,16 +276,62 @@ class AdvancedRecorderEngine(
             audioWriteCount = 0L
             videoWriteCount = 0L
 
+            val detectionPrefs = context.getSharedPreferences(
+                "detection_settings",
+                Context.MODE_PRIVATE,
+            )
+            val names = detectionPrefs.getString("names", "هيبة")
+                .orEmpty()
+                .split(",", "\n", "،")
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .distinct()
+
+            // Keep normal recording unchanged when no names are configured.
+            // If names are configured, route frames through GL so OCR can inspect
+            // copies without interrupting the encoder's input surface.
+            val displaySurface: Surface = if (names.isNotEmpty()) {
+                val analyzer = ScreenFrameAnalyzer { detectedName ->
+                    Log.i(TAG, "Detected name: $detectedName")
+                    // Sound notifications can be connected here.
+                }
+                if (!analyzer.start(context.applicationContext, names)) {
+                    analyzer.release()
+                    throw IllegalStateException("Failed to start live name detector")
+                }
+                frameAnalyzer = analyzer
+
+                val pipeline = ScreenFrameGlPipeline(
+                    encoderSurface = checkNotNull(inputSurface) {
+                        "Video encoder input surface is unavailable"
+                    },
+                    width = alignedWidth,
+                    height = alignedHeight,
+                ) { bitmap ->
+                    try {
+                        frameAnalyzer?.submitFrame(bitmap, names)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to submit frame for OCR", e)
+                    } finally {
+                        if (!bitmap.isRecycled) bitmap.recycle()
+                    }
+                }
+                frameGlPipeline = pipeline
+                pipeline.getInputSurface()
+            } else {
+                checkNotNull(inputSurface) { "Video encoder input surface is unavailable" }
+            }
+
             virtualDisplay = projection?.createVirtualDisplay(
                 "Captord-Display",
                 alignedWidth,
                 alignedHeight,
                 screenDpi,
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-                inputSurface,
+                displaySurface,
                 null,
                 null,
-            )
+            ) ?: throw IllegalStateException("Failed to create virtual display")
 
             recording = true
             paused = false
@@ -758,11 +809,22 @@ class AdvancedRecorderEngine(
         try { mediaMuxer?.release() } catch (_: Exception) {}
         mediaMuxer = null
 
-        inputSurface?.release()
-        inputSurface = null
-
-        virtualDisplay?.release()
+        // Stop the display first so it no longer submits frames to the GL surface.
+        try { virtualDisplay?.release() } catch (_: Exception) {}
         virtualDisplay = null
+
+        try { frameGlPipeline?.release() } catch (e: Exception) {
+            Log.w(TAG, "Failed to release GL frame pipeline", e)
+        }
+        frameGlPipeline = null
+
+        try { frameAnalyzer?.release() } catch (e: Exception) {
+            Log.w(TAG, "Failed to release frame analyzer", e)
+        }
+        frameAnalyzer = null
+
+        try { inputSurface?.release() } catch (_: Exception) {}
+        inputSurface = null
 
         projection?.stop()
         projection = null
