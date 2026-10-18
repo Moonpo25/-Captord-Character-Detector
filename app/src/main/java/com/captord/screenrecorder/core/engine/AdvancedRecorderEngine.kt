@@ -5,11 +5,11 @@ import android.content.Intent
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.MediaCodec
-import android.media.MediaPlayer
-import android.net.Uri
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.media.MediaMuxer
+import android.media.MediaPlayer
+import android.net.Uri
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
@@ -282,12 +282,19 @@ class AdvancedRecorderEngine(
                 "detection_settings",
                 Context.MODE_PRIVATE,
             )
-            // DetectionSettingsCard stores names as a StringSet, not a String.
-            val names = detectionPrefs.getStringSet("names", setOf("هيبة"))
-                .orEmpty()
-                .map { it.trim() }
-                .filter { it.isNotEmpty() }
-                .distinct()
+            // The settings UI stores names with putStringSet(), so read the same type.
+            // A String fallback is used only for older installs that saved comma-separated names.
+            val names = runCatching {
+                detectionPrefs.getStringSet("names", setOf("هيبة"))
+                    ?.toList()
+                    .orEmpty()
+            }.getOrElse {
+                runCatching {
+                    detectionPrefs.getString("names", "هيبة")
+                        .orEmpty()
+                        .split(",", "\n", "،")
+                }.getOrDefault(listOf("هيبة"))
+            }.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
 
             // Keep normal recording unchanged when no names are configured.
             // If names are configured, route frames through GL so OCR can inspect
@@ -296,24 +303,21 @@ class AdvancedRecorderEngine(
                 val analyzer = ScreenFrameAnalyzer { detectedName ->
                     Log.i(TAG, "Detected name: $detectedName")
                     val soundUri = detectionPrefs.getString("sound_$detectedName", null)
-                    if (!soundUri.isNullOrBlank()) {
+                    if (soundUri.isNullOrBlank()) {
+                        Log.i(TAG, "No custom sound configured for: $detectedName")
+                    } else {
                         try {
                             val player = MediaPlayer.create(context.applicationContext, Uri.parse(soundUri))
                             if (player != null) {
                                 player.setOnCompletionListener { it.release() }
-                                player.setOnErrorListener { mp, _, _ ->
-                                    mp.release()
-                                    true
-                                }
+                                player.setOnErrorListener { mp, _, _ -> mp.release(); true }
                                 player.start()
                             } else {
-                                Log.w(TAG, "Could not create player for: $detectedName")
+                                Log.w(TAG, "Could not create sound player for: $detectedName")
                             }
                         } catch (e: Exception) {
                             Log.w(TAG, "Could not play sound for: $detectedName", e)
                         }
-                    } else {
-                        Log.i(TAG, "No sound selected for detected name: $detectedName")
                     }
                 }
                 if (!analyzer.start(context.applicationContext, names)) {
