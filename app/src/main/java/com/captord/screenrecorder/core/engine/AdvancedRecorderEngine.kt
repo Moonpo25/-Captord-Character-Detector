@@ -5,6 +5,8 @@ import android.content.Intent
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.MediaCodec
+import android.media.MediaPlayer
+import android.net.Uri
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.media.MediaMuxer
@@ -280,9 +282,9 @@ class AdvancedRecorderEngine(
                 "detection_settings",
                 Context.MODE_PRIVATE,
             )
-            val names = detectionPrefs.getString("names", "هيبة")
+            // DetectionSettingsCard stores names as a StringSet, not a String.
+            val names = detectionPrefs.getStringSet("names", setOf("هيبة"))
                 .orEmpty()
-                .split(",", "\n", "،")
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
                 .distinct()
@@ -293,7 +295,26 @@ class AdvancedRecorderEngine(
             val displaySurface: Surface = if (names.isNotEmpty()) {
                 val analyzer = ScreenFrameAnalyzer { detectedName ->
                     Log.i(TAG, "Detected name: $detectedName")
-                    // Sound notifications can be connected here.
+                    val soundUri = detectionPrefs.getString("sound_$detectedName", null)
+                    if (!soundUri.isNullOrBlank()) {
+                        try {
+                            val player = MediaPlayer.create(context.applicationContext, Uri.parse(soundUri))
+                            if (player != null) {
+                                player.setOnCompletionListener { it.release() }
+                                player.setOnErrorListener { mp, _, _ ->
+                                    mp.release()
+                                    true
+                                }
+                                player.start()
+                            } else {
+                                Log.w(TAG, "Could not create player for: $detectedName")
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Could not play sound for: $detectedName", e)
+                        }
+                    } else {
+                        Log.i(TAG, "No sound selected for detected name: $detectedName")
+                    }
                 }
                 if (!analyzer.start(context.applicationContext, names)) {
                     analyzer.release()
